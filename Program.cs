@@ -1,19 +1,31 @@
 using System.Text;
-
 using DatingApp.Server.Data;
 using DatingApp.Server.Services;
 using DatingApp.Server.Settings;
-
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Настройка JWT Settings
+// 1. Явная загрузка конфигурации с учётом окружения
+builder.Configuration
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    .AddEnvironmentVariables(); // <-- Переменные окружения имеют наивысший приоритет
+
+// 2. Проверка обязательных параметров
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (string.IsNullOrEmpty(connectionString))
+{
+    throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
+}
+
+// 3. Настройка JWT Settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 
-// Настройка CORS
+// 4. CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -24,7 +36,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Настройка JWT
+// 5. JWT аутентификация
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
 if (jwtSettings == null || string.IsNullOrEmpty(jwtSettings.SecretKey))
 {
@@ -52,36 +64,34 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// Настройка базы данных
+// 6. База данных
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
 
-// Регистрация сервисов
+// 7. Регистрация сервисов
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddSingleton<IMemoryCacheService, MemoryCacheService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
-// Добавление контроллеров
+// 8. Контроллеры
 builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// Применение миграций при запуске
+// 9. Миграции при старте
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await dbContext.Database.MigrateAsync();
 }
 
-// Настройка pipeline
+// 10. Pipeline
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
-
-// Статические файлы для фото
 app.UseStaticFiles();
 
 app.Run();
