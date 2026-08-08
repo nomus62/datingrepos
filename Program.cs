@@ -11,9 +11,9 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. Явная загрузка конфигурации с учётом окружения
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
-    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
-    .AddEnvironmentVariables(); // <-- Переменные окружения имеют наивысший приоритет
+    .AddEnvironmentVariables();
 
 // 2. Проверка обязательных параметров
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
