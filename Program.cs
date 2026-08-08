@@ -18,7 +18,6 @@ builder.Configuration
 // 2. Проверка обязательных параметров
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 Console.WriteLine($"Строка подключения (маскированная): {connectionString?.Replace("Password=", "Password=***")}");
-
 if (string.IsNullOrEmpty(connectionString))
 {
     throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
