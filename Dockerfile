@@ -16,5 +16,6 @@ RUN dotnet publish "DatingApp.Server.csproj" -c Release -o /app/publish /p:UseAp
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+# Копируем все JSON-файлы (включая appsettings.json)
 COPY *.json ./
 ENTRYPOINT ["dotnet", "DatingApp.Server.dll"]

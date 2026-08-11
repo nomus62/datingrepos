@@ -10,36 +10,37 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Конфигурация
+// ===== ЯВНАЯ ЗАГРУЗКА КОНФИГУРАЦИИ =====
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
-    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
     .AddEnvironmentVariables();
 
-// Порт
+// Порт от Render (или по умолчанию 8080)
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
-// Строка подключения
+// === ПРОВЕРКА СТРОКИ ПОДКЛЮЧЕНИЯ ===
 var connString = builder.Configuration.GetConnectionString("DefaultConnection");
 if (string.IsNullOrEmpty(connString))
 {
-    Console.WriteLine("FATAL: Connection string missing.");
-    throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
+    Console.WriteLine("FATAL: Connection string 'DefaultConnection' is not configured.");
+    throw new InvalidOperationException("Connection string is missing.");
 }
 
-// JWT
+// === JWT НАСТРОЙКИ ===
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
 if (jwtSettings == null || string.IsNullOrEmpty(jwtSettings.SecretKey))
 {
-    Console.WriteLine("FATAL: JWT settings missing.");
-    throw new InvalidOperationException("JWT settings are not configured.");
+    Console.WriteLine("FATAL: JWT settings are not configured.");
+    throw new InvalidOperationException("JWT settings are missing.");
 }
 var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
 
-// Services
+// === РЕГИСТРАЦИЯ СЕРВИСОВ ===
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -49,6 +50,7 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -68,6 +70,7 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+// === DB CONTEXT (ТОЛЬКО POSTGRESQL) ===
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connString));
 
@@ -75,25 +78,28 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddSingleton<IMemoryCacheService, MemoryCacheService>();
 builder.Services.AddScoped<IUserService, UserService>();
+
 builder.Services.AddControllers();
 
 var app = builder.Build();
 
-// Миграции (если БД доступна)
+// === МИГРАЦИИ (с обработкой ошибок) ===
 try
 {
     using (var scope = app.Services.CreateScope())
     {
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await dbContext.Database.MigrateAsync();
-        Console.WriteLine("Migrations applied.");
+        Console.WriteLine("Migrations applied successfully.");
     }
 }
 catch (Exception ex)
 {
     Console.WriteLine($"Migration failed: {ex.Message}");
+    // Приложение продолжит работу, но БД может быть недоступна
 }
 
+// === ПОРЯДОК MIDDLEWARE ===
 app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();
