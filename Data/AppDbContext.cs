@@ -19,7 +19,7 @@ namespace DatingApp.Server.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // Уникальные ограничения
+            // --- УНИКАЛЬНЫЕ ОГРАНИЧЕНИЯ ---
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.Login)
                 .IsUnique();
@@ -28,22 +28,44 @@ namespace DatingApp.Server.Data
                 .HasIndex(l => new { l.SourceUserId, l.TargetUserId })
                 .IsUnique();
 
-            // Каскадное удаление
+            // --- НАСТРОЙКА LIKE ---
             modelBuilder.Entity<Like>()
                 .HasOne(l => l.SourceUser)
                 .WithMany(u => u.SentLikes)
+                .HasForeignKey(l => l.SourceUserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Like>()
                 .HasOne(l => l.TargetUser)
                 .WithMany(u => u.ReceivedLikes)
+                .HasForeignKey(l => l.TargetUserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Связь User - UserProfile
+            // --- НАСТРОЙКА MESSAGE (ОСНОВНАЯ ПРИЧИНА ОШИБКИ) ---
+            modelBuilder.Entity<Message>()
+                .HasOne(m => m.Sender)
+                .WithMany(u => u.SentMessages)
+                .HasForeignKey(m => m.SenderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Message>()
+                .HasOne(m => m.Receiver)
+                .WithMany(u => u.ReceivedMessages)
+                .HasForeignKey(m => m.ReceiverId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // --- СВЯЗЬ USER - USERPROFILE ---
             modelBuilder.Entity<UserProfile>()
                 .HasOne(up => up.User)
                 .WithOne(u => u.Profile)
                 .HasForeignKey<UserProfile>(up => up.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // --- ДОПОЛНИТЕЛЬНО: СВЯЗЬ PHOTO - USERPROFILE (если есть) ---
+            modelBuilder.Entity<Photo>()
+                .HasOne(p => p.UserProfile)
+                .WithMany(up => up.Photos)
+                .HasForeignKey(p => p.UserProfileId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }
