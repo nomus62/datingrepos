@@ -40,41 +40,41 @@ namespace DatingApp.Server.Controllers
         {
             try
             {
-                // Валидация
+                // 1. Валидация
                 if (registerDto.Password != registerDto.ConfirmPassword)
                 {
                     return BadRequest(new { message = "Пароли не совпадают" });
                 }
 
+                // 2. Проверка существования пользователя
                 if (await _context.Users.AnyAsync(u => u.Login == registerDto.Login))
                 {
                     return BadRequest(new { message = "Пользователь с таким логином уже существует" });
                 }
 
-                // Создание пользователя
+                // 3. Создание пользователя
                 var user = new User
                 {
                     Login = registerDto.Login,
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password),
-                    CreatedAt = DateTime.UtcNow
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password)
                 };
 
-                // Создание профиля
+                // 4. Создание профиля и явная связь через навигационное свойство
                 var profile = new UserProfile
                 {
-                    User = user,
                     Name = registerDto.Name,
                     Age = registerDto.Age,
                     Gender = registerDto.Gender,
                     City = registerDto.City,
                     UpdatedAt = DateTime.UtcNow
                 };
+                user.Profile = profile; // <-- важная строка: связываем профиль с пользователем
 
+                // 5. Добавление пользователя (вместе с профилем)
                 await _context.Users.AddAsync(user);
-                await _context.UserProfiles.AddAsync(profile);
                 await _context.SaveChangesAsync();
 
-                // Генерация токенов
+                // 6. Генерация токенов
                 var tokens = await _tokenService.CreateTokens(user);
                 user.RefreshToken = tokens.RefreshToken;
                 user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
@@ -84,8 +84,9 @@ namespace DatingApp.Server.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Ошибка при регистрации пользователя");
-                return StatusCode(500, new { message = "Внутренняя ошибка сервера" });
+                // Логируем полное исключение (включая внутренние)
+                _logger.LogError(ex, "Registration error: {Message}", ex.ToString());
+                return StatusCode(500, new { message = "Внутренняя ошибка сервера", details = ex.Message });
             }
         }
 

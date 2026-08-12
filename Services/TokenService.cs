@@ -13,6 +13,14 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace DatingApp.Server.Services
 {
+
+    public interface ITokenService
+    {
+        Task<string> GenerateAccessToken(User user);
+        string GenerateRefreshToken();
+        Task<TokenDto> CreateTokens(User user);
+    }
+
     public class TokenService : ITokenService
     {
         private readonly JwtSettings _jwtSettings;

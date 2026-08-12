@@ -7,6 +7,15 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace DatingApp.Server.Services
 {
+    public interface IMemoryCacheService
+    {
+        Task UpdateOnlineStatusAsync(int userId, bool isOnline);
+        Task<bool> IsUserOnlineAsync(int userId);
+        Task<IEnumerable<int>> GetOnlineUserIdsAsync();
+        Task UpdateTypingStatusAsync(int userId, bool isTyping);
+        Task<bool> IsUserTypingAsync(int userId);
+        Task ClearExpiredEntriesAsync();
+    }
     public class MemoryCacheService : IMemoryCacheService
     {
         private readonly IMemoryCache _cache;
