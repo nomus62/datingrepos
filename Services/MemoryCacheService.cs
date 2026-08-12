@@ -16,6 +16,7 @@ namespace DatingApp.Server.Services
         Task<bool> IsUserTypingAsync(int userId);
         Task ClearExpiredEntriesAsync();
     }
+	
     public class MemoryCacheService : IMemoryCacheService
     {
         private readonly IMemoryCache _cache;

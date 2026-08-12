@@ -22,6 +22,7 @@ namespace DatingApp.Server.Services
         Task<bool> DeletePhotoAsync(int userId, int photoId);
         Task<bool> SetMainPhotoAsync(int userId, int photoId);
     }
+
     public class UserService : IUserService
     {
         private readonly AppDbContext _context;
