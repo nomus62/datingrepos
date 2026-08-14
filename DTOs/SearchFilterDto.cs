@@ -4,6 +4,7 @@ namespace DatingApp.Server.DTOs
     public class SearchFilterDto
     {
         public int UserId { get; set; }          // <-- добавить
+        public string? SearchText { get; set; }  // <-- добавить
         public string? Gender { get; set; }
         public int? AgeFrom { get; set; }
         public int? AgeTo { get; set; }

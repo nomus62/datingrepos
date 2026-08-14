@@ -25,6 +25,7 @@ namespace DatingApp.Server.Controllers
 
         [HttpGet]
         public async Task<IActionResult> SearchProfiles(
+         [FromQuery] string? searchText,   // <-- добавить
          [FromQuery] string? gender,
          [FromQuery] int? ageFrom,
          [FromQuery] int? ageTo,
@@ -41,6 +42,7 @@ namespace DatingApp.Server.Controllers
                 var filter = new SearchFilterDto
                 {
                     UserId = userId,
+                    SearchText = searchText,
                     Gender = gender,
                     AgeFrom = ageFrom,
                     AgeTo = ageTo,

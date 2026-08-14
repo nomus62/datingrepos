@@ -105,54 +105,67 @@ namespace DatingApp.Server.Services
             }
         }
 
+        /*
+                public async Task<List<UserProfile>> SearchProfilesAsync(SearchFilterDto filter)
+                {
+                    var query = _context.UserProfiles
+                        .Include(p => p.Photos)
+                        .Include(p => p.User)
+                        .Where(p => p.UserId != filter.UserId); // <-- исключаем себя
+
+                    if (!string.IsNullOrEmpty(filter.Gender))
+                        query = query.Where(p => p.Gender == filter.Gender);
+
+                    if (filter.AgeFrom.HasValue)
+                        query = query.Where(p => p.Age >= filter.AgeFrom.Value);
+
+                    if (filter.AgeTo.HasValue)
+                        query = query.Where(p => p.Age <= filter.AgeTo.Value);
+
+                    if (!string.IsNullOrEmpty(filter.City))
+                        query = query.Where(p => p.City.Contains(filter.City));
+
+                    return await query
+                        .Skip((filter.Page - 1) * filter.Size)
+                        .Take(filter.Size)
+                        .ToListAsync();
+                }
+        */
+
+
         public async Task<List<UserProfile>> SearchProfilesAsync(SearchFilterDto filter)
         {
-            try
+            var query = _context.UserProfiles
+                .Include(p => p.Photos)
+                .Include(p => p.User)
+                .Where(p => p.UserId != filter.UserId);
+
+            // Поиск по тексту (имя, город, логин)
+            if (!string.IsNullOrWhiteSpace(filter.SearchText))
             {
-                var query = _context.UserProfiles
-                    .Include(p => p.Photos)
-                    .Include(p => p.User)
-                    .AsQueryable();
-
-                // Применяем фильтры
-                if (!string.IsNullOrEmpty(filter.Gender))
-                    query = query.Where(p => p.Gender == filter.Gender);
-
-                if (filter.AgeFrom.HasValue)
-                    query = query.Where(p => p.Age >= filter.AgeFrom.Value);
-
-                if (filter.AgeTo.HasValue)
-                    query = query.Where(p => p.Age <= filter.AgeTo.Value);
-
-                if (!string.IsNullOrEmpty(filter.City))
-                    query = query.Where(p => p.City.Contains(filter.City));
-
-                // Пагинация
-                var page = filter.Page > 0 ? filter.Page : 1;
-                var size = filter.Size > 0 && filter.Size <= 100 ? filter.Size : 20;
-
-                var profiles = await query
-                    .Skip((page - 1) * size)
-                    .Take(size)
-                    .ToListAsync();
-
-                // Добавляем онлайн-статус
-                var onlineUsers = await _cacheService.GetOnlineUserIdsAsync();
-                foreach (var profile in profiles)
-                {
-                    if (profile.User != null)
-                    {
-                        profile.User.IsOnline = onlineUsers.Contains(profile.UserId);
-                    }
-                }
-
-                return profiles;
+                var term = filter.SearchText.ToLower();
+                query = query.Where(p =>
+                    p.Name.ToLower().Contains(term) ||
+                    p.City.ToLower().Contains(term) ||
+                    p.User.Login.ToLower().Contains(term));
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Ошибка поиска профилей");
-                throw;
-            }
+
+            if (!string.IsNullOrEmpty(filter.Gender))
+                query = query.Where(p => p.Gender.ToLower() == filter.Gender.ToLower());
+
+            if (filter.AgeFrom.HasValue)
+                query = query.Where(p => p.Age >= filter.AgeFrom.Value);
+
+            if (filter.AgeTo.HasValue)
+                query = query.Where(p => p.Age <= filter.AgeTo.Value);
+
+            if (!string.IsNullOrEmpty(filter.City))
+                query = query.Where(p => p.City.ToLower().Contains(filter.City.ToLower()));
+
+            return await query
+                .Skip((filter.Page - 1) * filter.Size)
+                .Take(filter.Size)
+                .ToListAsync();
         }
 
         public async Task<bool> UploadPhotoAsync(int userId, Stream fileStream, string fileName, string contentType)
