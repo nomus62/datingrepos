@@ -5,6 +5,8 @@ using DatingApp.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
+using System.Security.Claims;
+
 namespace DatingApp.Server.Controllers
 {
     [ApiController]
@@ -23,17 +25,22 @@ namespace DatingApp.Server.Controllers
 
         [HttpGet]
         public async Task<IActionResult> SearchProfiles(
-            [FromQuery] string? gender,
-            [FromQuery] int? ageFrom,
-            [FromQuery] int? ageTo,
-            [FromQuery] string? city,
-            [FromQuery] int page = 1,
-            [FromQuery] int size = 20)
+         [FromQuery] string? gender,
+         [FromQuery] int? ageFrom,
+         [FromQuery] int? ageTo,
+         [FromQuery] string? city,
+         [FromQuery] int page = 1,
+         [FromQuery] int size = 20)
         {
             try
             {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!int.TryParse(userIdClaim, out int userId))
+                    return Unauthorized(new { message = "Недействительный токен" });
+
                 var filter = new SearchFilterDto
                 {
+                    UserId = userId,
                     Gender = gender,
                     AgeFrom = ageFrom,
                     AgeTo = ageTo,
