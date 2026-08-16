@@ -146,10 +146,10 @@ namespace DatingApp.Server.Services
                 var term = filter.SearchText.ToLower();
                 query = query.Where(p =>
                     p.Name.ToLower().Contains(term) ||
-                    p.City.ToLower().Contains(term) ||
+                   // p.City.ToLower().Contains(term) ||
                     p.User.Login.ToLower().Contains(term));
             }
-
+            /*
             if (!string.IsNullOrEmpty(filter.Gender))
                 query = query.Where(p => p.Gender.ToLower() == filter.Gender.ToLower());
 
@@ -161,11 +161,15 @@ namespace DatingApp.Server.Services
 
             if (!string.IsNullOrEmpty(filter.City))
                 query = query.Where(p => p.City.ToLower().Contains(filter.City.ToLower()));
+            */
 
-            return await query
+            var result= await query
                 .Skip((filter.Page - 1) * filter.Size)
                 .Take(filter.Size)
                 .ToListAsync();
+
+            _logger.LogInformation($"Found {result.Count} profiles for search '{filter.SearchText}'");
+            return result;
         }
 
         public async Task<bool> UploadPhotoAsync(int userId, Stream fileStream, string fileName, string contentType)
