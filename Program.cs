@@ -70,6 +70,7 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+
 // === DB CONTEXT (ТОЛЬКО POSTGRESQL) ===
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connString));
@@ -79,7 +80,12 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddSingleton<IMemoryCacheService, MemoryCacheService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.WriteIndented = true;
+    });
 
 var app = builder.Build();
 
