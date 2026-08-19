@@ -12,6 +12,11 @@ using Swashbuckle.AspNetCore.SwaggerUI;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Отключаем FileSystemWatcher
+builder.Environment.ContentRootFileProvider = new PhysicalFileProvider(
+    builder.Environment.ContentRootPath,
+    ExclusionFilters.System);
+
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
