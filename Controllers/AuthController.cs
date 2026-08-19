@@ -76,6 +76,12 @@ namespace DatingApp.Server.Controllers
 
                 // 6. Генерация токенов
                 var tokens = await _tokenService.CreateTokens(user);
+                if (tokens == null)
+                {
+                    _logger.LogError("Failed to create tokens for user {UserId}", user.Id);
+                    return StatusCode(500, new { message = "Ошибка генерации токенов" });
+                }
+
                 user.RefreshToken = tokens.RefreshToken;
                 user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
                 await _context.SaveChangesAsync();

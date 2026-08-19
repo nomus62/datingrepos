@@ -16,6 +16,11 @@ RUN dotnet publish "DatingApp.Server.csproj" -c Release -o /app/publish /p:UseAp
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-# Копируем все JSON-файлы (включая appsettings.json)
 COPY *.json ./
+
+# === ДОБАВИТЬ СОЗДАНИЕ ПАПОК ДЛЯ ФОТО ===
+RUN mkdir -p /app/wwwroot/photos/original \
+             /app/wwwroot/photos/medium \
+             /app/wwwroot/photos/thumb
+
 ENTRYPOINT ["dotnet", "DatingApp.Server.dll"]

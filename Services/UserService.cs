@@ -15,9 +15,9 @@ namespace DatingApp.Server.Services
 
     public interface IUserService
     {
-        Task<UserProfile?> GetProfileAsync(int userId);
-        Task<UserProfile?> UpdateProfileAsync(int userId, UpdateProfileDto updateDto);
-        Task<List<UserProfile>> SearchProfilesAsync(SearchFilterDto filter);
+        Task<ProfileDto?> GetProfileAsync(int userId);
+        Task<ProfileDto?> UpdateProfileAsync(int userId, UpdateProfileDto updateDto);
+        Task<List<ProfileDto>> SearchProfilesAsync(SearchFilterDto filter);
         Task<bool> UploadPhotoAsync(int userId, Stream fileStream, string fileName, string contentType);
         Task<bool> DeletePhotoAsync(int userId, int photoId);
         Task<bool> SetMainPhotoAsync(int userId, int photoId);
@@ -42,7 +42,7 @@ namespace DatingApp.Server.Services
             _cacheService = cacheService;
         }
 
-        public async Task<UserProfile?> GetProfileAsync(int userId)
+        public async Task<ProfileDto?> GetProfileAsync(int userId)
         {
             try
             {
@@ -54,10 +54,27 @@ namespace DatingApp.Server.Services
                 if (profile == null)
                     return null;
 
-                // Добавляем онлайн-статус
-                profile.User.IsOnline = await _cacheService.IsUserOnlineAsync(userId);
+                var isOnline = await _cacheService.IsUserOnlineAsync(userId);
 
-                return profile;
+                return new ProfileDto
+                {
+                    Id = profile.Id,
+                    Name = profile.Name,
+                    Age = profile.Age,
+                    Gender = profile.Gender,
+                    City = profile.City,
+                    About = profile.About,
+                    IsOnline = isOnline,
+                    LastOnlineAt = profile.User.LastOnlineAt,
+                    Photos = profile.Photos.Select(p => new PhotoDto
+                    {
+                        Id = p.Id,
+                        ThumbUrl = p.ThumbUrl,
+                        MediumUrl = p.MediumUrl,
+                        OriginalUrl = p.OriginalUrl,
+                        IsMain = p.IsMain
+                    }).ToList()
+                };
             }
             catch (Exception ex)
             {
@@ -65,19 +82,18 @@ namespace DatingApp.Server.Services
                 throw;
             }
         }
-
-        public async Task<UserProfile?> UpdateProfileAsync(int userId, UpdateProfileDto updateDto)
+        public async Task<ProfileDto?> UpdateProfileAsync(int userId, UpdateProfileDto updateDto)
         {
             try
             {
                 var profile = await _context.UserProfiles
                     .Include(p => p.User)
+                    .Include(p => p.Photos)
                     .FirstOrDefaultAsync(p => p.UserId == userId);
 
                 if (profile == null)
                     return null;
 
-                // Обновляем поля
                 if (!string.IsNullOrEmpty(updateDto.Name))
                     profile.Name = updateDto.Name;
 
@@ -96,7 +112,28 @@ namespace DatingApp.Server.Services
                 profile.UpdatedAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
-                return profile;
+
+                var isOnline = await _cacheService.IsUserOnlineAsync(userId);
+
+                return new ProfileDto
+                {
+                    Id = profile.Id,
+                    Name = profile.Name,
+                    Age = profile.Age,
+                    Gender = profile.Gender,
+                    City = profile.City,
+                    About = profile.About,
+                    IsOnline = isOnline,
+                    LastOnlineAt = profile.User.LastOnlineAt,
+                    Photos = profile.Photos.Select(p => new PhotoDto
+                    {
+                        Id = p.Id,
+                        ThumbUrl = p.ThumbUrl,
+                        MediumUrl = p.MediumUrl,
+                        OriginalUrl = p.OriginalUrl,
+                        IsMain = p.IsMain
+                    }).ToList()
+                };
             }
             catch (Exception ex)
             {
@@ -104,52 +141,21 @@ namespace DatingApp.Server.Services
                 throw;
             }
         }
-
-        /*
-                public async Task<List<UserProfile>> SearchProfilesAsync(SearchFilterDto filter)
-                {
-                    var query = _context.UserProfiles
-                        .Include(p => p.Photos)
-                        .Include(p => p.User)
-                        .Where(p => p.UserId != filter.UserId); // <-- исключаем себя
-
-                    if (!string.IsNullOrEmpty(filter.Gender))
-                        query = query.Where(p => p.Gender == filter.Gender);
-
-                    if (filter.AgeFrom.HasValue)
-                        query = query.Where(p => p.Age >= filter.AgeFrom.Value);
-
-                    if (filter.AgeTo.HasValue)
-                        query = query.Where(p => p.Age <= filter.AgeTo.Value);
-
-                    if (!string.IsNullOrEmpty(filter.City))
-                        query = query.Where(p => p.City.Contains(filter.City));
-
-                    return await query
-                        .Skip((filter.Page - 1) * filter.Size)
-                        .Take(filter.Size)
-                        .ToListAsync();
-                }
-        */
-
-
-        public async Task<List<UserProfile>> SearchProfilesAsync(SearchFilterDto filter)
+        public async Task<List<ProfileDto>> SearchProfilesAsync(SearchFilterDto filter)
         {
             var query = _context.UserProfiles
                 .Include(p => p.Photos)
                 .Include(p => p.User)
                 .Where(p => p.UserId != filter.UserId);
 
-            // Поиск по тексту (имя, город, логин)
             if (!string.IsNullOrWhiteSpace(filter.SearchText))
             {
                 var term = filter.SearchText.ToLower();
                 query = query.Where(p =>
                     p.Name.ToLower().Contains(term) ||
-                   // p.City.ToLower().Contains(term) ||
                     p.User.Login.ToLower().Contains(term));
             }
-            /*
+
             if (!string.IsNullOrEmpty(filter.Gender))
                 query = query.Where(p => p.Gender.ToLower() == filter.Gender.ToLower());
 
@@ -161,17 +167,40 @@ namespace DatingApp.Server.Services
 
             if (!string.IsNullOrEmpty(filter.City))
                 query = query.Where(p => p.City.ToLower().Contains(filter.City.ToLower()));
-            */
 
-            var result= await query
+            var profiles = await query
                 .Skip((filter.Page - 1) * filter.Size)
                 .Take(filter.Size)
                 .ToListAsync();
 
+            var result = new List<ProfileDto>();
+            foreach (var profile in profiles)
+            {
+                var isOnline = await _cacheService.IsUserOnlineAsync(profile.UserId);
+                result.Add(new ProfileDto
+                {
+                    Id = profile.Id,
+                    Name = profile.Name,
+                    Age = profile.Age,
+                    Gender = profile.Gender,
+                    City = profile.City,
+                    About = profile.About,
+                    IsOnline = isOnline,
+                    LastOnlineAt = profile.User.LastOnlineAt,
+                    Photos = profile.Photos.Select(p => new PhotoDto
+                    {
+                        Id = p.Id,
+                        ThumbUrl = p.ThumbUrl,
+                        MediumUrl = p.MediumUrl,
+                        OriginalUrl = p.OriginalUrl,
+                        IsMain = p.IsMain
+                    }).ToList()
+                });
+            }
+
             _logger.LogInformation($"Found {result.Count} profiles for search '{filter.SearchText}'");
             return result;
         }
-
         public async Task<bool> UploadPhotoAsync(int userId, Stream fileStream, string fileName, string contentType)
         {
             try

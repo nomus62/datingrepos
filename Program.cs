@@ -7,38 +7,28 @@ using DatingApp.Server.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Swashbuckle.AspNetCore.SwaggerUI;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ===== ЯВНАЯ ЗАГРУЗКА КОНФИГУРАЦИИ =====
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
     .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: false)
     .AddEnvironmentVariables();
 
-// Порт от Render (или по умолчанию 8080)
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
-// === ПРОВЕРКА СТРОКИ ПОДКЛЮЧЕНИЯ ===
-var connString = builder.Configuration.GetConnectionString("DefaultConnection");
-if (string.IsNullOrEmpty(connString))
-{
-    Console.WriteLine("FATAL: Connection string 'DefaultConnection' is not configured.");
-    throw new InvalidOperationException("Connection string is missing.");
-}
+var connString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string is missing.");
 
-// === JWT НАСТРОЙКИ ===
-var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
-if (jwtSettings == null || string.IsNullOrEmpty(jwtSettings.SecretKey))
-{
-    Console.WriteLine("FATAL: JWT settings are not configured.");
-    throw new InvalidOperationException("JWT settings are missing.");
-}
-var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
+var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()
+    ?? throw new InvalidOperationException("JWT settings are missing.");
 
-// === РЕГИСТРАЦИЯ СЕРВИСОВ ===
+var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey
+    ?? throw new InvalidOperationException("JWT SecretKey is missing."));
+
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 
 builder.Services.AddCors(options =>
@@ -70,8 +60,6 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-
-// === DB CONTEXT (ТОЛЬКО POSTGRESQL) ===
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connString));
 
@@ -87,9 +75,34 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.WriteIndented = true;
     });
 
+// ===== ВСТРОЕННАЯ ГЕНЕРАЦИЯ OPENAPI =====
+builder.Services.AddOpenApi();
+
+// ===== SWAGGER (Swashbuckle) =====
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
 var app = builder.Build();
 
-// === МИГРАЦИИ (с обработкой ошибок) ===
+// ===== SWAGGER UI (ТОЛЬКО ДЛЯ РАЗРАБОТКИ) =====
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();                    // /openapi/v1.json
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/openapi/v1.json", "DatingApp API");
+    });
+}
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger(); // /swagger/v1/swagger.json
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "DatingApp API");
+    });
+}
+
 try
 {
     using (var scope = app.Services.CreateScope())
@@ -101,11 +114,9 @@ try
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"Migration failed: {ex.Message}");
-    // Приложение продолжит работу, но БД может быть недоступна
+    Console.WriteLine($"Migration warning: {ex.Message}");
 }
 
-// === ПОРЯДОК MIDDLEWARE ===
 app.UseCors("AllowAll");
 app.UseAuthentication();
 app.UseAuthorization();

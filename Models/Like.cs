@@ -3,16 +3,17 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace DatingApp.Server.Models
 {
+    [Table("Likes")]
     public class Like
     {
         [Key]
         public int Id { get; set; }
 
-        [ForeignKey("User")]
+        [ForeignKey("SourceUser")]
         public int SourceUserId { get; set; }
         public virtual User SourceUser { get; set; } = null!;
 
-        [ForeignKey("User")]
+        [ForeignKey("TargetUser")]
         public int TargetUserId { get; set; }
         public virtual User TargetUser { get; set; } = null!;
 

@@ -1,15 +1,14 @@
-﻿// DatingApp.Server/Models/UserProfile.cs
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace DatingApp.Server.Models
 {
+    [Table("UserProfiles")]
     public class UserProfile
     {
         [Key]
         public int Id { get; set; }
 
-        [ForeignKey("User")]
         public int UserId { get; set; }
         public virtual User User { get; set; } = null!;
 
@@ -30,7 +29,6 @@ namespace DatingApp.Server.Models
 
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-        // Фотографии (храним пути к файлам)
         public ICollection<Photo> Photos { get; set; } = new List<Photo>();
     }
 }

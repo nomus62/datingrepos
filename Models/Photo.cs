@@ -3,12 +3,12 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace DatingApp.Server.Models
 {
+    [Table("Photos")]
     public class Photo
     {
         [Key]
         public int Id { get; set; }
 
-        [ForeignKey("UserProfile")]
         public int UserProfileId { get; set; }
         public virtual UserProfile UserProfile { get; set; } = null!;
 
