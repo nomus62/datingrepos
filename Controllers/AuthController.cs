@@ -120,7 +120,11 @@ namespace DatingApp.Server.Controllers
                 user.LastOnlineAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
-                return Ok(new { tokens });
+                return Ok(new
+                {
+                    tokens = tokens,
+                    userId = user.Id   // <-- ДОБАВИТЬ ЭТУ СТРОКУ
+                });
             }
             catch (Exception ex)
             {
