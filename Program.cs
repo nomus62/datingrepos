@@ -132,17 +132,24 @@ app.UseStaticFiles();
 app.Run();
 */
 
-using System.Text;
-
 using DatingApp.Server.Data;
 using DatingApp.Server.Services;
 using DatingApp.Server.Settings;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.FileProviders.Physical;
 using Microsoft.IdentityModel.Tokens;
 
+using System.Text;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Отключаем FileSystemWatcher
+builder.Environment.ContentRootFileProvider = new PhysicalFileProvider(
+    builder.Environment.ContentRootPath,
+    ExclusionFilters.System);
 
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
