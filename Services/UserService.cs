@@ -1,5 +1,4 @@
-﻿// DatingApp.Server/Services/UserService.cs
-using DatingApp.Server.Data;
+﻿using DatingApp.Server.Data;
 using DatingApp.Server.DTOs;
 using DatingApp.Server.Models;
 
@@ -8,167 +7,161 @@ using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 
-using System.Text.RegularExpressions;
+namespace DatingApp.Server.Services;
 
-namespace DatingApp.Server.Services
+public interface IUserService
 {
+    Task<ProfileDto?> GetProfileAsync(int userId);
+    Task<ProfileDto?> UpdateProfileAsync(int userId, UpdateProfileDto updateDto);
+    Task<List<ProfileDto>> SearchProfilesAsync(SearchFilterDto filter);
+    Task<bool> UploadPhotoAsync(int userId, Stream fileStream, string fileName, string contentType);
+    Task<bool> DeletePhotoAsync(int userId, int photoId);
+    Task<bool> SetMainPhotoAsync(int userId, int photoId);
+}
 
-    public interface IUserService
+public class UserService : IUserService
+{
+    private readonly AppDbContext _context;
+    private readonly IWebHostEnvironment _webHostEnvironment;
+    private readonly ILogger<UserService> _logger;
+    private readonly IMemoryCacheService _cacheService;
+
+    public UserService(
+        AppDbContext context,
+        IWebHostEnvironment webHostEnvironment,
+        ILogger<UserService> logger,
+        IMemoryCacheService cacheService)
     {
-        Task<ProfileDto?> GetProfileAsync(int userId);
-        Task<ProfileDto?> UpdateProfileAsync(int userId, UpdateProfileDto updateDto);
-        Task<List<ProfileDto>> SearchProfilesAsync(SearchFilterDto filter);
-        Task<bool> UploadPhotoAsync(int userId, Stream fileStream, string fileName, string contentType);
-        Task<bool> DeletePhotoAsync(int userId, int photoId);
-        Task<bool> SetMainPhotoAsync(int userId, int photoId);
+        _context = context;
+        _webHostEnvironment = webHostEnvironment;
+        _logger = logger;
+        _cacheService = cacheService;
     }
 
-    public class UserService : IUserService
+    public async Task<ProfileDto?> GetProfileAsync(int userId)
     {
-        private readonly AppDbContext _context;
-        private readonly IWebHostEnvironment _webHostEnvironment;
-        private readonly ILogger<UserService> _logger;
-        private readonly IMemoryCacheService _cacheService;
-
-        public UserService(
-            AppDbContext context,
-            IWebHostEnvironment webHostEnvironment,
-            ILogger<UserService> logger,
-            IMemoryCacheService cacheService)
+        try
         {
-            _context = context;
-            _webHostEnvironment = webHostEnvironment;
-            _logger = logger;
-            _cacheService = cacheService;
-        }
+            var profile = await _context.UserProfiles
+                .Include(p => p.Photos)
+                .Include(p => p.User)
+                .FirstOrDefaultAsync(p => p.UserId == userId);
 
-        public async Task<ProfileDto?> GetProfileAsync(int userId)
-        {
-            try
+            if (profile == null)
+                return null;
+
+            var isOnline = await _cacheService.IsUserOnlineAsync(userId);
+
+            return new ProfileDto
             {
-                var profile = await _context.UserProfiles
-                    .Include(p => p.Photos)
-                    .Include(p => p.User)
-                    .FirstOrDefaultAsync(p => p.UserId == userId);
-
-                if (profile == null)
-                    return null;
-
-                var isOnline = await _cacheService.IsUserOnlineAsync(userId);
-
-                return new ProfileDto
+                Id = profile.Id,
+                UserId = profile.UserId,
+                Name = profile.Name,
+                Age = profile.Age,
+                Gender = profile.Gender,
+                City = profile.City,
+                About = profile.About,
+                IsOnline = isOnline,
+                LastOnlineAt = profile.User.LastOnlineAt,
+                Photos = profile.Photos.Select(p => new PhotoDto
                 {
-                    Id = profile.Id,
-                    Name = profile.Name,
-                    Age = profile.Age,
-                    Gender = profile.Gender,
-                    City = profile.City,
-                    About = profile.About,
-                    IsOnline = isOnline,
-                    LastOnlineAt = profile.User.LastOnlineAt,
-                    Photos = profile.Photos.Select(p => new PhotoDto
-                    {
-                        Id = p.Id,
-                        ThumbUrl = p.ThumbUrl,
-                        MediumUrl = p.MediumUrl,
-                        OriginalUrl = p.OriginalUrl,
-                        IsMain = p.IsMain
-                    }).ToList()
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Ошибка получения профиля пользователя {userId}");
-                throw;
-            }
+                    Id = p.Id,
+                    ThumbUrl = p.ThumbUrl,
+                    MediumUrl = p.MediumUrl,
+                    OriginalUrl = p.OriginalUrl,
+                    IsMain = p.IsMain
+                }).ToList()
+            };
         }
-        public async Task<ProfileDto?> UpdateProfileAsync(int userId, UpdateProfileDto updateDto)
+        catch (Exception ex)
         {
-            try
-            {
-                var profile = await _context.UserProfiles
-                    .Include(p => p.User)
-                    .Include(p => p.Photos)
-                    .FirstOrDefaultAsync(p => p.UserId == userId);
-
-                if (profile == null)
-                    return null;
-
-                if (!string.IsNullOrEmpty(updateDto.Name))
-                    profile.Name = updateDto.Name;
-
-                if (updateDto.Age > 0 && updateDto.Age < 120)
-                    profile.Age = updateDto.Age;
-
-                if (!string.IsNullOrEmpty(updateDto.Gender))
-                    profile.Gender = updateDto.Gender;
-
-                if (!string.IsNullOrEmpty(updateDto.City))
-                    profile.City = updateDto.City;
-
-                if (updateDto.About != null)
-                    profile.About = updateDto.About;
-
-                profile.UpdatedAt = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-
-                var isOnline = await _cacheService.IsUserOnlineAsync(userId);
-
-                return new ProfileDto
-                {
-                    Id = profile.Id,
-                    Name = profile.Name,
-                    Age = profile.Age,
-                    Gender = profile.Gender,
-                    City = profile.City,
-                    About = profile.About,
-                    IsOnline = isOnline,
-                    LastOnlineAt = profile.User.LastOnlineAt,
-                    Photos = profile.Photos.Select(p => new PhotoDto
-                    {
-                        Id = p.Id,
-                        ThumbUrl = p.ThumbUrl,
-                        MediumUrl = p.MediumUrl,
-                        OriginalUrl = p.OriginalUrl,
-                        IsMain = p.IsMain
-                    }).ToList()
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Ошибка обновления профиля пользователя {userId}");
-                throw;
-            }
+            _logger.LogError(ex, $"Ошибка получения профиля пользователя {userId}");
+            throw;
         }
-        public async Task<List<ProfileDto>> SearchProfilesAsync(SearchFilterDto filter)
+    }
+
+    public async Task<ProfileDto?> UpdateProfileAsync(int userId, UpdateProfileDto updateDto)
+    {
+        try
+        {
+            var profile = await _context.UserProfiles
+                .Include(p => p.User)
+                .Include(p => p.Photos)
+                .FirstOrDefaultAsync(p => p.UserId == userId);
+
+            if (profile == null)
+                return null;
+
+            if (!string.IsNullOrEmpty(updateDto.Name))
+                profile.Name = updateDto.Name;
+
+            if (updateDto.Age > 0 && updateDto.Age < 120)
+                profile.Age = updateDto.Age;
+
+            if (!string.IsNullOrEmpty(updateDto.Gender))
+                profile.Gender = updateDto.Gender;
+
+            if (!string.IsNullOrEmpty(updateDto.City))
+                profile.City = updateDto.City;
+
+            if (updateDto.About != null)
+                profile.About = updateDto.About;
+
+            profile.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            var isOnline = await _cacheService.IsUserOnlineAsync(userId);
+
+            return new ProfileDto
+            {
+                Id = profile.Id,
+                UserId = profile.UserId,
+                Name = profile.Name,
+                Age = profile.Age,
+                Gender = profile.Gender,
+                City = profile.City,
+                About = profile.About,
+                IsOnline = isOnline,
+                LastOnlineAt = profile.User.LastOnlineAt,
+                Photos = profile.Photos.Select(p => new PhotoDto
+                {
+                    Id = p.Id,
+                    ThumbUrl = p.ThumbUrl,
+                    MediumUrl = p.MediumUrl,
+                    OriginalUrl = p.OriginalUrl,
+                    IsMain = p.IsMain
+                }).ToList()
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Ошибка обновления профиля пользователя {userId}");
+            throw;
+        }
+    }
+
+    public async Task<List<ProfileDto>> SearchProfilesAsync(SearchFilterDto filter)
+    {
+        try
         {
             var query = _context.UserProfiles
                 .Include(p => p.Photos)
                 .Include(p => p.User)
-                .Where(p => p.UserId != filter.UserId);
+                .Where(p => p.UserId != filter.UserId)
+                .AsQueryable();
 
-            if (!string.IsNullOrWhiteSpace(filter.SearchText))
-            {
-                var term = filter.SearchText.ToLower();
-                query = query.Where(p =>
-                    p.Name.ToLower().Contains(term) ||
-                    p.User.Login.ToLower().Contains(term));
-            }
-
+            // ✅ Только эти два фильтра
             if (!string.IsNullOrEmpty(filter.Gender))
                 query = query.Where(p => p.Gender.ToLower() == filter.Gender.ToLower());
 
-            if (filter.AgeFrom.HasValue)
-                query = query.Where(p => p.Age >= filter.AgeFrom.Value);
-
-            if (filter.AgeTo.HasValue)
-                query = query.Where(p => p.Age <= filter.AgeTo.Value);
-
             if (!string.IsNullOrEmpty(filter.City))
-                query = query.Where(p => p.City.ToLower().Contains(filter.City.ToLower()));
+                query = query.Where(p => p.City.ToLower() == filter.City.ToLower());
+
+            // ❌ SearchText, AgeFrom, AgeTo - УДАЛЕНЫ!
 
             var profiles = await query
+                .OrderByDescending(p => p.UpdatedAt)
                 .Skip((filter.Page - 1) * filter.Size)
                 .Take(filter.Size)
                 .ToListAsync();
@@ -180,6 +173,7 @@ namespace DatingApp.Server.Services
                 result.Add(new ProfileDto
                 {
                     Id = profile.Id,
+                    UserId = profile.UserId,
                     Name = profile.Name,
                     Age = profile.Age,
                     Gender = profile.Gender,
@@ -198,178 +192,166 @@ namespace DatingApp.Server.Services
                 });
             }
 
-            _logger.LogInformation($"Found {result.Count} profiles for search '{filter.SearchText}'");
+            _logger.LogInformation($"Найдено {result.Count} профилей (город: {filter.City}, пол: {filter.Gender})");
             return result;
         }
-        public async Task<bool> UploadPhotoAsync(int userId, Stream fileStream, string fileName, string contentType)
+        catch (Exception ex)
         {
-            try
-            {
-                // Проверяем размер файла (макс 10MB)
-                if (fileStream.Length > 10 * 1024 * 1024)
-                    throw new ArgumentException("Файл слишком большой. Максимальный размер - 10MB");
-
-                // Проверяем расширение
-                var extension = Path.GetExtension(fileName).ToLowerInvariant();
-                if (!new[] { ".jpg", ".jpeg", ".png", ".gif" }.Contains(extension))
-                    throw new ArgumentException("Неподдерживаемый формат файла");
-
-                var userProfile = await _context.UserProfiles
-                    .Include(p => p.Photos)
-                    .FirstOrDefaultAsync(p => p.UserId == userId);
-
-                if (userProfile == null)
-                    return false;
-
-                // Проверяем лимит фотографий (макс 5)
-                if (userProfile.Photos.Count >= 5)
-                    throw new InvalidOperationException("Достигнут лимит фотографий (максимум 5)");
-
-                // Генерируем уникальное имя файла
-                var guid = Guid.NewGuid().ToString();
-                var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "photos");
-
-                // Создаем папки для разных размеров
-                var originalFolder = Path.Combine(uploadsFolder, "original");
-                var mediumFolder = Path.Combine(uploadsFolder, "medium");
-                var thumbFolder = Path.Combine(uploadsFolder, "thumb");
-
-                Directory.CreateDirectory(originalFolder);
-                Directory.CreateDirectory(mediumFolder);
-                Directory.CreateDirectory(thumbFolder);
-
-                // Обработка изображения
-                using var image = await Image.LoadAsync(fileStream);
-
-                // Сохраняем оригинал
-                var originalPath = Path.Combine(originalFolder, $"{guid}{extension}");
-                await image.SaveAsync(originalPath);
-
-                // Создаем среднее изображение (500x500)
-                var mediumPath = Path.Combine(mediumFolder, $"{guid}{extension}");
-                using (var mediumImage = image.Clone(ctx => ctx.Resize(new ResizeOptions
-                {
-                    Size = new Size(500, 500),
-                    Mode = ResizeMode.Max
-                })))
-                {
-                    await mediumImage.SaveAsync(mediumPath);
-                }
-
-                // Создаем миниатюру (150x150)
-                var thumbPath = Path.Combine(thumbFolder, $"{guid}{extension}");
-                using (var thumbImage = image.Clone(ctx => ctx.Resize(new ResizeOptions
-                {
-                    Size = new Size(150, 150),
-                    Mode = ResizeMode.Crop
-                })))
-                {
-                    await thumbImage.SaveAsync(thumbPath);
-                }
-
-                // Создаем запись в БД
-                var photo = new Photo
-                {
-                    UserProfileId = userProfile.Id,
-                    OriginalUrl = $"/photos/original/{guid}{extension}",
-                    MediumUrl = $"/photos/medium/{guid}{extension}",
-                    ThumbUrl = $"/photos/thumb/{guid}{extension}",
-                    IsMain = !userProfile.Photos.Any(p => p.IsMain),
-                    UploadedAt = DateTime.UtcNow
-                };
-
-                userProfile.Photos.Add(photo);
-                await _context.SaveChangesAsync();
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"Ошибка загрузки фото для пользователя {userId}");
-                throw;
-            }
+            _logger.LogError(ex, "Ошибка поиска профилей");
+            return new List<ProfileDto>();
         }
+    }
 
-        public async Task<bool> DeletePhotoAsync(int userId, int photoId)
+    public async Task<bool> UploadPhotoAsync(int userId, Stream fileStream, string fileName, string contentType)
+    {
+        try
         {
-            try
+            if (fileStream.Length > 10 * 1024 * 1024)
+                throw new ArgumentException("Файл слишком большой. Максимальный размер - 10MB");
+
+            var extension = Path.GetExtension(fileName).ToLowerInvariant();
+            if (!new[] { ".jpg", ".jpeg", ".png", ".gif" }.Contains(extension))
+                throw new ArgumentException("Неподдерживаемый формат файла");
+
+            var userProfile = await _context.UserProfiles
+                .Include(p => p.Photos)
+                .FirstOrDefaultAsync(p => p.UserId == userId);
+
+            if (userProfile == null)
+                return false;
+
+            if (userProfile.Photos.Count >= 5)
+                throw new InvalidOperationException("Достигнут лимит фотографий (максимум 5)");
+
+            var guid = Guid.NewGuid().ToString();
+            var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "photos");
+
+            var originalFolder = Path.Combine(uploadsFolder, "original");
+            var mediumFolder = Path.Combine(uploadsFolder, "medium");
+            var thumbFolder = Path.Combine(uploadsFolder, "thumb");
+
+            Directory.CreateDirectory(originalFolder);
+            Directory.CreateDirectory(mediumFolder);
+            Directory.CreateDirectory(thumbFolder);
+
+            using var image = await Image.LoadAsync(fileStream);
+
+            var originalPath = Path.Combine(originalFolder, $"{guid}{extension}");
+            await image.SaveAsync(originalPath);
+
+            var mediumPath = Path.Combine(mediumFolder, $"{guid}{extension}");
+            using (var mediumImage = image.Clone(ctx => ctx.Resize(new ResizeOptions
             {
-                var photo = await _context.Photos
-                    .Include(p => p.UserProfile)
-                    .FirstOrDefaultAsync(p => p.Id == photoId && p.UserProfile.UserId == userId);
-
-                if (photo == null)
-                    return false;
-
-                // Удаляем файлы
-                var webRootPath = _webHostEnvironment.WebRootPath;
-                var filePaths = new[]
-                {
-                    Path.Combine(webRootPath, photo.OriginalUrl.TrimStart('/')),
-                    Path.Combine(webRootPath, photo.MediumUrl.TrimStart('/')),
-                    Path.Combine(webRootPath, photo.ThumbUrl.TrimStart('/'))
-                };
-
-                foreach (var filePath in filePaths)
-                {
-                    if (File.Exists(filePath))
-                        File.Delete(filePath);
-                }
-
-                // Если удаляем главное фото, назначаем новое
-                if (photo.IsMain)
-                {
-                    var newMain = await _context.Photos
-                        .Where(p => p.UserProfileId == photo.UserProfileId && p.Id != photoId)
-                        .FirstOrDefaultAsync();
-
-                    if (newMain != null)
-                    {
-                        newMain.IsMain = true;
-                    }
-                }
-
-                _context.Photos.Remove(photo);
-                await _context.SaveChangesAsync();
-
-                return true;
-            }
-            catch (Exception ex)
+                Size = new Size(500, 500),
+                Mode = ResizeMode.Max
+            })))
             {
-                _logger.LogError(ex, $"Ошибка удаления фото {photoId} пользователя {userId}");
-                throw;
+                await mediumImage.SaveAsync(mediumPath);
             }
+
+            var thumbPath = Path.Combine(thumbFolder, $"{guid}{extension}");
+            using (var thumbImage = image.Clone(ctx => ctx.Resize(new ResizeOptions
+            {
+                Size = new Size(150, 150),
+                Mode = ResizeMode.Crop
+            })))
+            {
+                await thumbImage.SaveAsync(thumbPath);
+            }
+
+            var photo = new Photo
+            {
+                UserProfileId = userProfile.Id,
+                OriginalUrl = $"/photos/original/{guid}{extension}",
+                MediumUrl = $"/photos/medium/{guid}{extension}",
+                ThumbUrl = $"/photos/thumb/{guid}{extension}",
+                IsMain = !userProfile.Photos.Any(p => p.IsMain),
+                UploadedAt = DateTime.UtcNow
+            };
+
+            userProfile.Photos.Add(photo);
+            await _context.SaveChangesAsync();
+
+            return true;
         }
-
-        public async Task<bool> SetMainPhotoAsync(int userId, int photoId)
+        catch (Exception ex)
         {
-            try
+            _logger.LogError(ex, $"Ошибка загрузки фото для пользователя {userId}");
+            throw;
+        }
+    }
+
+    public async Task<bool> DeletePhotoAsync(int userId, int photoId)
+    {
+        try
+        {
+            var photo = await _context.Photos
+                .Include(p => p.UserProfile)
+                .FirstOrDefaultAsync(p => p.Id == photoId && p.UserProfile.UserId == userId);
+
+            if (photo == null)
+                return false;
+
+            var webRootPath = _webHostEnvironment.WebRootPath;
+            var filePaths = new[]
             {
-                var photos = await _context.Photos
-                    .Where(p => p.UserProfile.UserId == userId)
-                    .ToListAsync();
+                Path.Combine(webRootPath, photo.OriginalUrl.TrimStart('/')),
+                Path.Combine(webRootPath, photo.MediumUrl.TrimStart('/')),
+                Path.Combine(webRootPath, photo.ThumbUrl.TrimStart('/'))
+            };
 
-                var targetPhoto = photos.FirstOrDefault(p => p.Id == photoId);
-                if (targetPhoto == null)
-                    return false;
-
-                // Снимаем флаг IsMain со всех фото
-                foreach (var photo in photos)
-                {
-                    photo.IsMain = false;
-                }
-
-                // Устанавливаем новое главное фото
-                targetPhoto.IsMain = true;
-                await _context.SaveChangesAsync();
-
-                return true;
-            }
-            catch (Exception ex)
+            foreach (var filePath in filePaths)
             {
-                _logger.LogError(ex, $"Ошибка установки главного фото {photoId} пользователя {userId}");
-                throw;
+                if (File.Exists(filePath))
+                    File.Delete(filePath);
             }
+
+            if (photo.IsMain)
+            {
+                var newMain = await _context.Photos
+                    .Where(p => p.UserProfileId == photo.UserProfileId && p.Id != photoId)
+                    .FirstOrDefaultAsync();
+
+                if (newMain != null)
+                    newMain.IsMain = true;
+            }
+
+            _context.Photos.Remove(photo);
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Ошибка удаления фото {photoId} пользователя {userId}");
+            throw;
+        }
+    }
+
+    public async Task<bool> SetMainPhotoAsync(int userId, int photoId)
+    {
+        try
+        {
+            var photos = await _context.Photos
+                .Where(p => p.UserProfile.UserId == userId)
+                .ToListAsync();
+
+            var targetPhoto = photos.FirstOrDefault(p => p.Id == photoId);
+            if (targetPhoto == null)
+                return false;
+
+            foreach (var photo in photos)
+                photo.IsMain = false;
+
+            targetPhoto.IsMain = true;
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Ошибка установки главного фото {photoId} пользователя {userId}");
+            throw;
         }
     }
 }

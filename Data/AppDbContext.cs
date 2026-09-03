@@ -18,7 +18,6 @@ namespace DatingApp.Server.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // --- УНИКАЛЬНЫЕ ОГРАНИЧЕНИЯ ---
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.Login)
                 .IsUnique();
@@ -27,7 +26,6 @@ namespace DatingApp.Server.Data
                 .HasIndex(l => new { l.SourceUserId, l.TargetUserId })
                 .IsUnique();
 
-            // --- СВЯЗИ ДЛЯ LIKE ---
             modelBuilder.Entity<Like>()
                 .HasOne(l => l.SourceUser)
                 .WithMany(u => u.SentLikes)
@@ -40,7 +38,6 @@ namespace DatingApp.Server.Data
                 .HasForeignKey(l => l.TargetUserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // --- СВЯЗИ ДЛЯ MESSAGE ---
             modelBuilder.Entity<Message>()
                 .HasOne(m => m.Sender)
                 .WithMany(u => u.SentMessages)
@@ -53,14 +50,12 @@ namespace DatingApp.Server.Data
                 .HasForeignKey(m => m.ReceiverId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // --- СВЯЗЬ USER - USERPROFILE (1:1) ---
             modelBuilder.Entity<UserProfile>()
                 .HasOne(up => up.User)
                 .WithOne(u => u.Profile)
                 .HasForeignKey<UserProfile>(up => up.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // --- СВЯЗЬ USERPROFILE - PHOTO (1:М) ---
             modelBuilder.Entity<Photo>()
                 .HasOne(p => p.UserProfile)
                 .WithMany(up => up.Photos)

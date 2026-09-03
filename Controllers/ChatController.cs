@@ -1,11 +1,10 @@
 ﻿using DatingApp.Server.Data;
-using DatingApp.Server.Models;
 using DatingApp.Server.DTOs;
+using DatingApp.Server.Models;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 using System.Security.Claims;
 
@@ -81,9 +80,6 @@ public class ChatController : ControllerBase
         });
     }
 
-    // ============================================================
-    // 4. ПОЛУЧИТЬ СПИСОК ДИАЛОГОВ (GET /api/chat/dialogs)
-    // ============================================================
     [HttpGet("dialogs")]
     public async Task<IActionResult> GetDialogs()
     {
@@ -93,7 +89,6 @@ public class ChatController : ControllerBase
             if (currentUserId == 0)
                 return Unauthorized(new { message = "Недействительный токен" });
 
-            // Находим всех пользователей, с которыми были сообщения
             var dialogUserIds = await _context.Messages
                 .Where(m => m.SenderId == currentUserId || m.ReceiverId == currentUserId)
                 .Select(m => m.SenderId == currentUserId ? m.ReceiverId : m.SenderId)
@@ -139,9 +134,6 @@ public class ChatController : ControllerBase
         }
     }
 
-    // ============================================================
-    // 5. ОТМЕТИТЬ СООБЩЕНИЕ КАК ПРОЧИТАННОЕ (PUT /api/chat/messages/{id}/read)
-    // ============================================================
     [HttpPut("messages/{id}/read")]
     public async Task<IActionResult> MarkAsRead(int id)
     {
@@ -170,4 +162,3 @@ public class ChatController : ControllerBase
         }
     }
 }
-

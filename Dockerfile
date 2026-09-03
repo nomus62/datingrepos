@@ -1,7 +1,7 @@
 FROM --platform=linux/amd64 mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
-EXPOSE 80
-EXPOSE 443
+EXPOSE 8080
+ENV PORT=8080
 
 FROM --platform=linux/amd64 mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
@@ -17,10 +17,8 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 COPY *.json ./
-
-# === ДОБАВИТЬ СОЗДАНИЕ ПАПОК ДЛЯ ФОТО ===
 RUN mkdir -p /app/wwwroot/photos/original \
              /app/wwwroot/photos/medium \
              /app/wwwroot/photos/thumb
-
+RUN chmod -R 755 /app/wwwroot/photos
 ENTRYPOINT ["dotnet", "DatingApp.Server.dll"]

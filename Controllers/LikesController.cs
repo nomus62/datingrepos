@@ -1,5 +1,4 @@
-﻿// DatingApp.Server/Controllers/LikesController.cs
-using DatingApp.Server.Data;
+﻿using DatingApp.Server.Data;
 using DatingApp.Server.DTOs;
 using DatingApp.Server.Models;
 using DatingApp.Server.Services;
@@ -31,9 +30,6 @@ public class LikesController : ControllerBase
         _logger = logger;
     }
 
-    // ============================================================
-    // 1. ПОСТАВИТЬ ЛАЙК (POST /api/likes/{userId})
-    // ============================================================
     [HttpPost("{userId}")]
     public async Task<IActionResult> LikeUser(int userId)
     {
@@ -46,19 +42,16 @@ public class LikesController : ControllerBase
             if (currentUserId == userId)
                 return BadRequest(new { message = "Нельзя лайкнуть самого себя" });
 
-            // Проверяем, существует ли пользователь
             var targetUser = await _context.Users.FindAsync(userId);
             if (targetUser == null)
                 return NotFound(new { message = "Пользователь не найден" });
 
-            // Проверяем, не ставили ли уже лайк
             var existingLike = await _context.Likes
                 .FirstOrDefaultAsync(l => l.SourceUserId == currentUserId && l.TargetUserId == userId);
 
             if (existingLike != null)
                 return BadRequest(new { message = "Вы уже лайкнули этого пользователя" });
 
-            // Проверяем, есть ли взаимный лайк
             var mutualLike = await _context.Likes
                 .FirstOrDefaultAsync(l => l.SourceUserId == userId && l.TargetUserId == currentUserId);
 
@@ -73,13 +66,11 @@ public class LikesController : ControllerBase
             _context.Likes.Add(like);
             await _context.SaveChangesAsync();
 
-            // Если есть взаимный лайк, обновляем статус обоих
             if (mutualLike != null)
             {
                 mutualLike.IsMutual = true;
                 like.IsMutual = true;
                 await _context.SaveChangesAsync();
-
                 _logger.LogInformation("Матч! {SourceUserId} и {TargetUserId}", currentUserId, userId);
             }
 
@@ -96,9 +87,6 @@ public class LikesController : ControllerBase
         }
     }
 
-    // ============================================================
-    // 2. УБРАТЬ ЛАЙК (DELETE /api/likes/{userId})
-    // ============================================================
     [HttpDelete("{userId}")]
     public async Task<IActionResult> UnlikeUser(int userId)
     {
@@ -114,16 +102,13 @@ public class LikesController : ControllerBase
             if (like == null)
                 return NotFound(new { message = "Лайк не найден" });
 
-            // Если был взаимный, убираем статус у обоих
             if (like.IsMutual)
             {
                 var mutualLike = await _context.Likes
                     .FirstOrDefaultAsync(l => l.SourceUserId == userId && l.TargetUserId == currentUserId);
 
                 if (mutualLike != null)
-                {
                     mutualLike.IsMutual = false;
-                }
             }
 
             _context.Likes.Remove(like);
@@ -138,9 +123,6 @@ public class LikesController : ControllerBase
         }
     }
 
-    // ============================================================
-    // 3. ПРОВЕРИТЬ, ЕСТЬ ЛИ ЛАЙК (GET /api/likes/check/{userId})
-    // ============================================================
     [HttpGet("check/{userId}")]
     public async Task<IActionResult> CheckLike(int userId)
     {
@@ -162,9 +144,8 @@ public class LikesController : ControllerBase
         }
     }
 
-    // ============================================================
-    // 4. ПОЛУЧИТЬ СПИСОК МАТЧЕЙ (GET /api/likes/matches)
-    // ============================================================
+     
+
     [HttpGet("matches")]
     public async Task<IActionResult> GetMatches()
     {
@@ -174,12 +155,11 @@ public class LikesController : ControllerBase
             if (currentUserId == 0)
                 return Unauthorized(new { message = "Недействительный токен" });
 
-            // Находим все взаимные лайки (матчи)
             var matches = await _context.Likes
                 .Where(l => l.SourceUserId == currentUserId && l.IsMutual)
                 .Include(l => l.TargetUser)
-                    .ThenInclude(u => u.Profile)
-                        .ThenInclude(p => p.Photos)
+                .ThenInclude(u => u.Profile)
+                .ThenInclude(p => p.Photos)
                 .Select(l => new MatchDto
                 {
                     UserId = l.TargetUserId,
@@ -187,12 +167,13 @@ public class LikesController : ControllerBase
                     Profile = new ProfileDto
                     {
                         Id = l.TargetUser.Profile!.Id,
+                        UserId = l.TargetUser.Profile.UserId,
                         Name = l.TargetUser.Profile.Name,
                         Age = l.TargetUser.Profile.Age,
                         Gender = l.TargetUser.Profile.Gender,
                         City = l.TargetUser.Profile.City,
                         About = l.TargetUser.Profile.About,
-                        IsOnline = false, // заполним ниже
+                        IsOnline = false,
                         LastOnlineAt = l.TargetUser.LastOnlineAt,
                         Photos = l.TargetUser.Profile.Photos.Select(p => new PhotoDto
                         {
@@ -215,9 +196,7 @@ public class LikesController : ControllerBase
         }
     }
 
-    // ============================================================
-    // 5. УДАЛИТЬ МАТЧ (DELETE /api/likes/matches/{userId})
-    // ============================================================
+
     [HttpDelete("matches/{userId}")]
     public async Task<IActionResult> DeleteMatch(int userId)
     {
@@ -227,7 +206,6 @@ public class LikesController : ControllerBase
             if (currentUserId == 0)
                 return Unauthorized(new { message = "Недействительный токен" });
 
-            // Находим оба лайка (взаимные)
             var like1 = await _context.Likes
                 .FirstOrDefaultAsync(l => l.SourceUserId == currentUserId && l.TargetUserId == userId);
 
@@ -237,7 +215,6 @@ public class LikesController : ControllerBase
             if (like1 == null && like2 == null)
                 return NotFound(new { message = "Матч не найден" });
 
-            // Удаляем оба лайка
             if (like1 != null)
                 _context.Likes.Remove(like1);
 
@@ -246,7 +223,6 @@ public class LikesController : ControllerBase
 
             await _context.SaveChangesAsync();
 
-            // Удаляем все сообщения между пользователями
             var messages = await _context.Messages
                 .Where(m => (m.SenderId == currentUserId && m.ReceiverId == userId) ||
                             (m.SenderId == userId && m.ReceiverId == currentUserId))
@@ -269,9 +245,6 @@ public class LikesController : ControllerBase
         }
     }
 
-    // ============================================================
-    // 6. ПОЛУЧИТЬ КОГО Я ЛАЙКНУЛ (GET /api/likes/sent)
-    // ============================================================
     [HttpGet("sent")]
     public async Task<IActionResult> GetSentLikes()
     {
@@ -293,6 +266,7 @@ public class LikesController : ControllerBase
                     Profile = new ProfileDto
                     {
                         Id = l.TargetUser.Profile!.Id,
+                        UserId = l.TargetUser.Profile.UserId,
                         Name = l.TargetUser.Profile.Name,
                         Age = l.TargetUser.Profile.Age,
                         Gender = l.TargetUser.Profile.Gender,
