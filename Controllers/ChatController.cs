@@ -51,33 +51,59 @@ public class ChatController : ControllerBase
     [HttpPost("messages")]
     public async Task<IActionResult> SendMessage([FromBody] SendMessageDto dto)
     {
-        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
-        if (currentUserId == 0) return Unauthorized();
-
-        if (string.IsNullOrWhiteSpace(dto.Content))
-            return BadRequest(new { message = "Сообщение не может быть пустым" });
-
-        var message = new Message
+        try
         {
-            SenderId = currentUserId,
-            ReceiverId = dto.ReceiverId,
-            Content = dto.Content,
-            SentAt = DateTime.UtcNow,
-            IsRead = false
-        };
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (currentUserId == 0)
+                return Unauthorized(new { message = "Недействительный токен" });
 
-        _context.Messages.Add(message);
-        await _context.SaveChangesAsync();
+            if (string.IsNullOrWhiteSpace(dto.Content))
+                return BadRequest(new { message = "Сообщение не может быть пустым" });
 
-        return Ok(new
+            if (dto.ReceiverId == currentUserId)
+                return BadRequest(new { message = "Нельзя писать самому себе" });
+
+            // Проверка: существует ли получатель
+            var receiverExists = await _context.Users.AnyAsync(u => u.Id == dto.ReceiverId);
+            if (!receiverExists)
+                return NotFound(new { message = "Получатель не найден" });
+
+            // Проверка: есть ли взаимный лайк (матч)
+            var isMatch = await _context.Likes.AnyAsync(l =>
+                l.SourceUserId == currentUserId &&
+                l.TargetUserId == dto.ReceiverId &&
+                l.IsMutual);
+
+            if (!isMatch)
+                return BadRequest(new { message = "Нужен взаимный лайк, чтобы писать" });
+
+            var message = new Message
+            {
+                SenderId = currentUserId,
+                ReceiverId = dto.ReceiverId,
+                Content = dto.Content,
+                SentAt = DateTime.UtcNow,
+                IsRead = false
+            };
+
+            _context.Messages.Add(message);
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message.Id,
+                message.SenderId,
+                message.ReceiverId,
+                message.Content,
+                message.SentAt,
+                message.IsRead
+            });
+        }
+        catch (Exception ex)
         {
-            message.Id,
-            message.SenderId,
-            message.ReceiverId,
-            message.Content,
-            message.SentAt,
-            message.IsRead
-        });
+            _logger.LogError(ex, "Ошибка при отправке сообщения");
+            return StatusCode(500, new { message = "Внутренняя ошибка сервера" });
+        }
     }
 
     [HttpGet("dialogs")]
