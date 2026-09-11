@@ -49,6 +49,8 @@ public class ProfileDto
     public int Age { get; set; }
     public string Gender { get; set; } = string.Empty;
     public string City { get; set; } = string.Empty;
+
+    public string? ZodiacSign { get; set; }
     public string? About { get; set; }
     public List<PhotoDto> Photos { get; set; } = new();
     public bool IsOnline { get; set; }
@@ -70,6 +72,8 @@ public class UpdateProfileDto
     public int Age { get; set; }
     public string Gender { get; set; } = string.Empty;
     public string City { get; set; } = string.Empty;
+
+    public string? ZodiacSign { get; set; }
     public string? About { get; set; }
 }
 

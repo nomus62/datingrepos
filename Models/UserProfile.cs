@@ -24,6 +24,9 @@ public class UserProfile
     [Required, MaxLength(100)]
     public string City { get; set; } = string.Empty;
 
+    [MaxLength(20)]
+    public string? ZodiacSign { get; set; }
+
     [MaxLength(500)]
     public string? About { get; set; }
 

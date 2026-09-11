@@ -41,6 +41,7 @@ public class ChatController : ControllerBase
                 m.ReceiverId,
                 m.Content,
                 m.SentAt,
+                m.ReadAt,      // ← добавить
                 m.IsRead
             })
             .ToListAsync();
@@ -133,6 +134,7 @@ public class ChatController : ControllerBase
 
                 var user = await _context.Users
                     .Include(u => u.Profile)
+                        .ThenInclude(p => p.Photos)
                     .FirstOrDefaultAsync(u => u.Id == userId);
 
                 if (user == null) continue;

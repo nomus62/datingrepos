@@ -61,6 +61,7 @@ public class UserService : IUserService
                 Gender = profile.Gender,
                 City = profile.City,
                 About = profile.About,
+                ZodiacSign = profile.ZodiacSign,   // ← добавить
                 IsOnline = isOnline,
                 LastOnlineAt = profile.User.LastOnlineAt,
                 Photos = profile.Photos.Select(p => new PhotoDto
@@ -104,6 +105,9 @@ public class UserService : IUserService
             if (!string.IsNullOrEmpty(updateDto.City))
                 profile.City = updateDto.City;
 
+            if (updateDto.ZodiacSign != null)
+                profile.ZodiacSign = updateDto.ZodiacSign;
+
             if (updateDto.About != null)
                 profile.About = updateDto.About;
 
@@ -122,6 +126,7 @@ public class UserService : IUserService
                 Gender = profile.Gender,
                 City = profile.City,
                 About = profile.About,
+                ZodiacSign = profile.ZodiacSign,
                 IsOnline = isOnline,
                 LastOnlineAt = profile.User.LastOnlineAt,
                 Photos = profile.Photos.Select(p => new PhotoDto
@@ -206,8 +211,8 @@ public class UserService : IUserService
     {
         try
         {
-            if (fileStream.Length > 10 * 1024 * 1024)
-                throw new ArgumentException("Файл слишком большой. Максимальный размер - 10MB");
+            if (fileStream.Length > 5 * 1024 * 1024)
+                throw new ArgumentException("Файл слишком большой. Максимальный размер - 5 MB");
 
             var extension = Path.GetExtension(fileName).ToLowerInvariant();
             if (!new[] { ".jpg", ".jpeg", ".png", ".gif" }.Contains(extension))

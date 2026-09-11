@@ -20,13 +20,17 @@ public class LikesController : ControllerBase
     private readonly IUserService _userService;
     private readonly ILogger<LikesController> _logger;
 
+    private readonly IMemoryCacheService _cacheService;
+
     public LikesController(
         AppDbContext context,
         IUserService userService,
+          IMemoryCacheService cacheService,
         ILogger<LikesController> logger)
     {
         _context = context;
         _userService = userService;
+        _cacheService = cacheService;
         _logger = logger;
     }
 
@@ -155,12 +159,18 @@ public class LikesController : ControllerBase
             if (currentUserId == 0)
                 return Unauthorized(new { message = "Недействительный токен" });
 
-            var matches = await _context.Likes
-                .Where(l => l.SourceUserId == currentUserId && l.IsMutual)
-                .Include(l => l.TargetUser)
-                .ThenInclude(u => u.Profile)
-                .ThenInclude(p => p.Photos)
-                .Select(l => new MatchDto
+            var rawMatches = await _context.Likes
+               .Where(l => l.SourceUserId == currentUserId && l.IsMutual)
+               .Include(l => l.TargetUser)
+               .ThenInclude(u => u.Profile)
+               .ThenInclude(p => p.Photos)
+               .ToListAsync();
+
+            var matches = new List<MatchDto>();
+            foreach (var l in rawMatches)
+            {
+                var isOnline = await _cacheService.IsUserOnlineAsync(l.TargetUserId);
+                matches.Add(new MatchDto
                 {
                     UserId = l.TargetUserId,
                     MatchedAt = l.CreatedAt,
@@ -172,8 +182,9 @@ public class LikesController : ControllerBase
                         Age = l.TargetUser.Profile.Age,
                         Gender = l.TargetUser.Profile.Gender,
                         City = l.TargetUser.Profile.City,
+                        ZodiacSign = l.TargetUser.Profile.ZodiacSign,
                         About = l.TargetUser.Profile.About,
-                        IsOnline = false,
+                        IsOnline = isOnline,
                         LastOnlineAt = l.TargetUser.LastOnlineAt,
                         Photos = l.TargetUser.Profile.Photos.Select(p => new PhotoDto
                         {
@@ -184,8 +195,8 @@ public class LikesController : ControllerBase
                             IsMain = p.IsMain
                         }).ToList()
                     }
-                })
-                .ToListAsync();
+                });
+            }
 
             return Ok(matches);
         }
@@ -255,9 +266,9 @@ public class LikesController : ControllerBase
                 return Unauthorized(new { message = "Недействительный токен" });
 
             var likes = await _context.Likes
-                .Where(l => l.SourceUserId == currentUserId)
+                .Where(l => l.SourceUserId == currentUserId && l.TargetUser.Profile != null)
                 .Include(l => l.TargetUser)
-                    .ThenInclude(u => u.Profile)
+                .ThenInclude(u => u.Profile)
                 .Select(l => new
                 {
                     l.TargetUserId,
@@ -271,6 +282,7 @@ public class LikesController : ControllerBase
                         Age = l.TargetUser.Profile.Age,
                         Gender = l.TargetUser.Profile.Gender,
                         City = l.TargetUser.Profile.City,
+                        ZodiacSign = l.TargetUser.Profile.ZodiacSign,
                         About = l.TargetUser.Profile.About,
                     }
                 })
