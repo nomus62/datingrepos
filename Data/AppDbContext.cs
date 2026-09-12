@@ -13,6 +13,7 @@ namespace DatingApp.Server.Data
         public DbSet<Photo> Photos { get; set; }
         public DbSet<Like> Likes { get; set; }
         public DbSet<Message> Messages { get; set; }
+        public DbSet<Block> Blocks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

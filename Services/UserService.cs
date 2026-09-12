@@ -154,6 +154,9 @@ public class UserService : IUserService
                 .Include(p => p.Photos)
                 .Include(p => p.User)
                 .Where(p => p.UserId != filter.UserId)
+                .Where(p => !_context.Blocks.Any(b =>
+                     (b.BlockerId == filter.UserId && b.BlockedId == p.UserId) ||
+                     (b.BlockerId == p.UserId && b.BlockedId == filter.UserId)))
                 .AsQueryable();
 
             // ✅ Только эти два фильтра

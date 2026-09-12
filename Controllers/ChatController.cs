@@ -82,6 +82,13 @@ public class ChatController : ControllerBase
             if (!isMatch)
                 return BadRequest(new { message = "Нужен взаимный лайк, чтобы писать" });
 
+            var isBlocked = await _context.Blocks.AnyAsync(b =>
+                (b.BlockerId == currentUserId && b.BlockedId == dto.ReceiverId) ||
+                (b.BlockerId == dto.ReceiverId && b.BlockedId == currentUserId));
+
+            if (isBlocked)
+                return BadRequest(new { message = "Общение заблокировано" });
+
             var message = new Message
             {
                 SenderId = currentUserId,
