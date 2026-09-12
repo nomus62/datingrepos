@@ -1,6 +1,7 @@
 ﻿using DatingApp.Server.Data;
 using DatingApp.Server.DTOs;
 using DatingApp.Server.Models;
+using DatingApp.Server.Services;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,11 +17,14 @@ namespace DatingApp.Server.Controllers;
 public class ChatController : ControllerBase
 {
     private readonly AppDbContext _context;
+
+    private readonly IMemoryCacheService _cacheService;
     private readonly ILogger<ChatController> _logger;
 
-    public ChatController(AppDbContext context, ILogger<ChatController> logger)
+    public ChatController(AppDbContext context, IMemoryCacheService cacheService, ILogger<ChatController> logger)
     {
         _context = context;
+        _cacheService = cacheService;        // ← добавить
         _logger = logger;
     }
 
@@ -188,5 +192,23 @@ public class ChatController : ControllerBase
             _logger.LogError(ex, "Ошибка отметки сообщения");
             return StatusCode(500, new { message = "Внутренняя ошибка сервера" });
         }
+    }
+
+    //add endpoints
+    [HttpPost("typing/{userId}")]
+    public async Task<IActionResult> SetTyping(int userId)
+    {
+        var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+        if (currentUserId == 0) return Unauthorized();
+
+        await _cacheService.UpdateTypingStatusAsync(currentUserId, true);
+        return Ok();
+    }
+
+    [HttpGet("typing/{userId}")]
+    public async Task<IActionResult> IsTyping(int userId)
+    {
+        var isTyping = await _cacheService.IsUserTypingAsync(userId);
+        return Ok(new { isTyping });
     }
 }
