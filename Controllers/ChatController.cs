@@ -211,4 +211,31 @@ public class ChatController : ControllerBase
         var isTyping = await _cacheService.IsUserTypingAsync(userId);
         return Ok(new { isTyping });
     }
+
+    [HttpDelete("messages/{id}")]
+    public async Task<IActionResult> DeleteMessage(int id)
+    {
+        try
+        {
+            var currentUserId = int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
+            if (currentUserId == 0) return Unauthorized();
+
+            var message = await _context.Messages.FindAsync(id);
+            if (message == null) return NotFound(new { message = "Сообщение не найдено" });
+
+            // Удалять можно только свои сообщения
+            if (message.SenderId != currentUserId)
+                return Forbid();
+
+            _context.Messages.Remove(message);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Сообщение удалено" });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка удаления сообщения");
+            return StatusCode(500, new { message = "Внутренняя ошибка сервера" });
+        }
+    }
 }
