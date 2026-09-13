@@ -21,4 +21,5 @@ public class Message
     public DateTime SentAt { get; set; } = DateTime.UtcNow;
     public DateTime? ReadAt { get; set; }
     public bool IsRead { get; set; }
+    public int? ReplyToMessageId { get; set; }
 }

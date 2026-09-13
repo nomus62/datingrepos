@@ -45,8 +45,12 @@ public class ChatController : ControllerBase
                 m.ReceiverId,
                 m.Content,
                 m.SentAt,
-                m.ReadAt,      // ← добавить
-                m.IsRead
+                m.ReadAt,
+                m.IsRead,
+                m.ReplyToMessageId,
+                ReplyToContent = m.ReplyToMessageId == null ? null :
+        _context.Messages.Where(x => x.Id == m.ReplyToMessageId)
+            .Select(x => x.Content).FirstOrDefault()
             })
             .ToListAsync();
 
@@ -95,6 +99,7 @@ public class ChatController : ControllerBase
                 ReceiverId = dto.ReceiverId,
                 Content = dto.Content,
                 SentAt = DateTime.UtcNow,
+                ReplyToMessageId = dto.ReplyToMessageId,
                 IsRead = false
             };
 
@@ -108,6 +113,7 @@ public class ChatController : ControllerBase
                 message.ReceiverId,
                 message.Content,
                 message.SentAt,
+                message.ReplyToMessageId,
                 message.IsRead
             });
         }

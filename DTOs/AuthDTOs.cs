@@ -114,6 +114,7 @@ public class SendMessageDto
 {
     public int ReceiverId { get; set; }
     public string Content { get; set; } = string.Empty;
+    public int? ReplyToMessageId { get; set; }
 }
 
 public class MessageDto
