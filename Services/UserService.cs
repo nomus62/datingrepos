@@ -64,6 +64,7 @@ public class UserService : IUserService
                 ZodiacSign = profile.ZodiacSign,   // ← добавить
                 IsOnline = isOnline,
                 LastOnlineAt = profile.User.LastOnlineAt,
+                IsAdmin = profile.User.IsAdmin,
                 Photos = profile.Photos.Select(p => new PhotoDto
                 {
                     Id = p.Id,
@@ -129,6 +130,7 @@ public class UserService : IUserService
                 ZodiacSign = profile.ZodiacSign,
                 IsOnline = isOnline,
                 LastOnlineAt = profile.User.LastOnlineAt,
+                IsAdmin = profile.User.IsAdmin,
                 Photos = profile.Photos.Select(p => new PhotoDto
                 {
                     Id = p.Id,

@@ -95,7 +95,10 @@ public class AuthController : ControllerBase
 
             if (user == null || !BCrypt.Net.BCrypt.Verify(loginDto.Password, user.PasswordHash))
                 return Unauthorized(new { message = "Неверный логин или пароль" });
-
+           
+            if (user.IsBanned)
+                return Unauthorized(new { message = $"Вы забанены. Причина: {user.BanReason ?? "не указана"}" });
+           
             await _cacheService.UpdateOnlineStatusAsync(user.Id, true);
 
             var tokens = await _tokenService.CreateTokens(user);

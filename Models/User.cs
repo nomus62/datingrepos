@@ -20,6 +20,9 @@ public class User
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public bool IsOnline { get; set; }
     public DateTime? LastOnlineAt { get; set; }
+    public bool IsAdmin { get; set; }
+    public bool IsBanned { get; set; }
+    public string? BanReason { get; set; }
 
     public UserProfile? Profile { get; set; }
     public ICollection<Like> SentLikes { get; set; } = new List<Like>();

@@ -55,6 +55,7 @@ public class ProfileDto
     public List<PhotoDto> Photos { get; set; } = new();
     public bool IsOnline { get; set; }
     public DateTime? LastOnlineAt { get; set; }
+    public bool IsAdmin { get; set; }
 }
 
 public class PhotoDto
