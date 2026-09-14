@@ -251,4 +251,11 @@ public class ChatController : ControllerBase
             return StatusCode(500, new { message = "Внутренняя ошибка сервера" });
         }
     }
+
+    [HttpGet("online/{userId}")]
+    public async Task<IActionResult> IsUserOnline(int userId)
+    {
+        var online = await _cacheService.IsUserOnlineAsync(userId);
+        return Ok(new { isOnline = online });
+    }
 }
