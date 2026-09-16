@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-//using Microsoft.OpenApi.Models;  // ✅ Правильный using
+//using Microsoft.OpenApi.Models;  // ✅используем Microsoft.OpenApi вместо Microsoft.OpenApi.Models
 
 using System.Text;
 
@@ -96,48 +96,33 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.WriteIndented = true;
     });
 
-// ===== 10. SWAGGER (Упрощённый) =====
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
-/*
-builder.Services.AddSwaggerGen(c =>
+// ===== 10. SWAGGER =====
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
+    options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "DatingApp API",
         Version = "v1",
         Description = "DatingApp API for MAUI client"
     });
 
-    // ✅ Исправленный синтаксис для Swashbuckle v10
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    // Security Definition
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Name = "Authorization",
         Type = SecuritySchemeType.Http,
-        Scheme = "Bearer",
+        Scheme = "bearer",
         BearerFormat = "JWT",
-        In = ParameterLocation.Header,
         Description = "JWT Authorization header using the Bearer scheme."
     });
 
-    // ✅ Правильный синтаксис SecurityRequirement
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    // Security Requirement — новый синтаксис
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
     {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Id = "Bearer",
-                    Type = ReferenceType.SecurityScheme
-                }
-            },
-            new List<string>()
-        }
+        [new OpenApiSecuritySchemeReference("Bearer", document)] = []
     });
 });
-*/
 
 // ===== 11. BUILD =====
 var app = builder.Build();
