@@ -84,6 +84,8 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddSingleton<IMemoryCacheService, MemoryCacheService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
+builder.Services.AddScoped<ISupabaseStorageService, SupabaseStorageService>();
+
 // ===== 9. CONTROLLERS =====
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
