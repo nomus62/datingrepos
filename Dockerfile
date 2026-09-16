@@ -17,8 +17,4 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 COPY *.json ./
-RUN mkdir -p /app/wwwroot/photos/original \
-             /app/wwwroot/photos/medium \
-             /app/wwwroot/photos/thumb
-RUN chmod -R 755 /app/wwwroot/photos
 ENTRYPOINT ["dotnet", "DatingApp.Server.dll"]
