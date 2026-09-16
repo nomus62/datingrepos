@@ -21,10 +21,4 @@
  
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="wwwroot\photos\original\" />
-    <Folder Include="wwwroot\photos\medium\" />
-    <Folder Include="wwwroot\photos\thumb\" />
-  </ItemGroup>
-
 </Project>

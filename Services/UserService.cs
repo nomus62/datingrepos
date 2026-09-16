@@ -14,7 +14,7 @@ public interface IUserService
     Task<ProfileDto?> GetProfileAsync(int userId);
     Task<ProfileDto?> UpdateProfileAsync(int userId, UpdateProfileDto updateDto);
     Task<List<ProfileDto>> SearchProfilesAsync(SearchFilterDto filter);
-    Task<bool> UploadPhotoAsync(int userId, Stream fileStream, string fileName, string contentType);
+    //Task<bool> UploadPhotoAsync(int userId, Stream fileStream, string fileName, string contentType);
     Task<bool> DeletePhotoAsync(int userId, int photoId);
     Task<bool> SetMainPhotoAsync(int userId, int photoId);
 
@@ -217,6 +217,7 @@ public class UserService : IUserService
         }
     }
 
+    /*
     public async Task<bool> UploadPhotoAsync(int userId, Stream fileStream, string fileName, string contentType)
     {
         try
@@ -295,6 +296,7 @@ public class UserService : IUserService
             throw;
         }
     }
+    */
 
     public async Task<bool> DeletePhotoAsync(int userId, int photoId)
     {

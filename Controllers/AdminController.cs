@@ -232,6 +232,7 @@ public class AdminController : ControllerBase
         return Ok(new { message = "Пользователь удалён" });
     }
 
+/*   
     [HttpPost("test-storage")]
     public async Task<IActionResult> TestStorage(IFormFile file)
     {
@@ -257,6 +258,7 @@ public class AdminController : ControllerBase
             return StatusCode(500, new { message = ex.Message });
         }
     }
+*/
 
     public class BanDto { public string? Reason { get; set; } }
 }

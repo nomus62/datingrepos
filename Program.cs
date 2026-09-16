@@ -128,6 +128,8 @@ builder.Services.AddSwaggerGen(options =>
 var app = builder.Build();
 
 // ===== 12. MIGRATIONS =====
+
+/*
 try
 {
     using (var scope = app.Services.CreateScope())
@@ -144,25 +146,17 @@ catch (Exception ex)
     Console.WriteLine($"⚠️ Migration warning: {ex.Message}");
 }
 
+*/
+
 // ===== 13. SWAGGER UI =====
 app.UseSwagger();
 app.UseSwaggerUI();
 
-/*
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "DatingApp API v1");
-    c.RoutePrefix = "swagger";
-    c.DocumentTitle = "DatingApp API Documentation";
-    // ✅ DisplayRequestDuration - это свойство, не метод
-    c.DisplayRequestDuration = true;
-    
-});
-*/
+
 
 // ===== 14. MIDDLEWARE =====
 app.UseCors("AllowAll");
-app.UseStaticFiles();
+//app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
