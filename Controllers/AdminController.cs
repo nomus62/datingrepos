@@ -17,12 +17,14 @@ public class AdminController : ControllerBase
     private readonly AppDbContext _context;
     private readonly IMemoryCacheService _cacheService;
     private readonly IWebHostEnvironment _env;
+    private readonly ISupabaseStorageService _storage;
 
-    public AdminController(AppDbContext context, IMemoryCacheService cacheService, IWebHostEnvironment env)
+    public AdminController(AppDbContext context, IMemoryCacheService cacheService, IWebHostEnvironment env, ISupabaseStorageService storage)
     {
         _context = context;
         _cacheService = cacheService;
         _env = env;
+        _storage = storage;
     }
 
     private int CurrentUserId => int.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "0");
@@ -228,6 +230,32 @@ public class AdminController : ControllerBase
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
         return Ok(new { message = "Пользователь удалён" });
+    }
+
+    [HttpPost("test-storage")]
+    public async Task<IActionResult> TestStorage(IFormFile file)
+    {
+        if (!await IsAdminAsync()) return Forbid();
+        if (file == null || file.Length == 0)
+            return BadRequest(new { message = "Файл не выбран" });
+
+        try
+        {
+            using var stream = file.OpenReadStream();
+            var publicUrl = await _storage.UploadAsync(stream, file.FileName, file.ContentType);
+
+            return Ok(new
+            {
+                message = "Файл загружен в Supabase Storage",
+                url = publicUrl,
+                size = file.Length,
+                name = file.FileName
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
     }
 
     public class BanDto { public string? Reason { get; set; } }
