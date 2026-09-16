@@ -17,6 +17,8 @@ public interface IUserService
     Task<bool> UploadPhotoAsync(int userId, Stream fileStream, string fileName, string contentType);
     Task<bool> DeletePhotoAsync(int userId, int photoId);
     Task<bool> SetMainPhotoAsync(int userId, int photoId);
+
+    Task<bool> UploadPhotoToStorageAsync(int userId, Stream fileStream, string fileName, string contentType);
 }
 
 public class UserService : IUserService
@@ -25,17 +27,20 @@ public class UserService : IUserService
     private readonly IWebHostEnvironment _webHostEnvironment;
     private readonly ILogger<UserService> _logger;
     private readonly IMemoryCacheService _cacheService;
+    private readonly ISupabaseStorageService _supabaseStorage;
 
     public UserService(
         AppDbContext context,
         IWebHostEnvironment webHostEnvironment,
         ILogger<UserService> logger,
-        IMemoryCacheService cacheService)
+        IMemoryCacheService cacheService,
+        ISupabaseStorageService supabaseStorage)
     {
         _context = context;
         _webHostEnvironment = webHostEnvironment;
         _logger = logger;
         _cacheService = cacheService;
+        _supabaseStorage = supabaseStorage;
     }
 
     public async Task<ProfileDto?> GetProfileAsync(int userId)
@@ -302,20 +307,30 @@ public class UserService : IUserService
             if (photo == null)
                 return false;
 
-            var webRootPath = _webHostEnvironment.WebRootPath;
-            var filePaths = new[]
+            // ===== 1. Удаление из Supabase Storage (если URL оттуда) =====
+            if (!string.IsNullOrEmpty(photo.OriginalUrl) && photo.OriginalUrl.StartsWith("http"))
             {
+                await _supabaseStorage.DeleteAsync(photo.OriginalUrl);
+            }
+            else
+            {
+                // Старое фото — удаляем с диска Render
+                var webRootPath = _webHostEnvironment.WebRootPath;
+                var filePaths = new[]
+                {
                 Path.Combine(webRootPath, photo.OriginalUrl.TrimStart('/')),
                 Path.Combine(webRootPath, photo.MediumUrl.TrimStart('/')),
                 Path.Combine(webRootPath, photo.ThumbUrl.TrimStart('/'))
             };
 
-            foreach (var filePath in filePaths)
-            {
-                if (File.Exists(filePath))
-                    File.Delete(filePath);
+                foreach (var filePath in filePaths)
+                {
+                    if (File.Exists(filePath))
+                        File.Delete(filePath);
+                }
             }
 
+            // ===== 2. Перенос главного фото =====
             if (photo.IsMain)
             {
                 var newMain = await _context.Photos
@@ -326,6 +341,7 @@ public class UserService : IUserService
                     newMain.IsMain = true;
             }
 
+            // ===== 3. Удаление записи из БД =====
             _context.Photos.Remove(photo);
             await _context.SaveChangesAsync();
 
@@ -361,6 +377,52 @@ public class UserService : IUserService
         catch (Exception ex)
         {
             _logger.LogError(ex, $"Ошибка установки главного фото {photoId} пользователя {userId}");
+            throw;
+        }
+    }
+
+    public async Task<bool> UploadPhotoToStorageAsync(int userId, Stream fileStream, string fileName, string contentType)
+    {
+        try
+        {
+            if (fileStream.Length > 5 * 1024 * 1024)
+                throw new ArgumentException("Файл слишком большой. Максимум 5 МБ");
+
+            var extension = Path.GetExtension(fileName).ToLowerInvariant();
+            if (!new[] { ".jpg", ".jpeg", ".png", ".gif" }.Contains(extension))
+                throw new ArgumentException("Неподдерживаемый формат файла");
+
+            var userProfile = await _context.UserProfiles
+                .Include(p => p.Photos)
+                .FirstOrDefaultAsync(p => p.UserId == userId);
+
+            if (userProfile == null) return false;
+
+            if (userProfile.Photos.Count >= 5)
+                throw new InvalidOperationException("Достигнут лимит фотографий (максимум 5)");
+
+            // Загрузка в Supabase Storage
+            var publicUrl = await _supabaseStorage.UploadAsync(fileStream, fileName, contentType);
+
+            var photo = new Photo
+            {
+                UserProfileId = userProfile.Id,
+                OriginalUrl = publicUrl,
+                MediumUrl = publicUrl,
+                ThumbUrl = publicUrl,
+                IsMain = !userProfile.Photos.Any(p => p.IsMain),
+                UploadedAt = DateTime.UtcNow
+            };
+
+            userProfile.Photos.Add(photo);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Фото загружено в Supabase Storage: {Url}", publicUrl);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, $"Ошибка загрузки фото в Supabase для пользователя {userId}");
             throw;
         }
     }

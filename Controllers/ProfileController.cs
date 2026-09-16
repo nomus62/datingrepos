@@ -97,8 +97,8 @@ public class ProfileController : ControllerBase
                 return Unauthorized();
 
             using var stream = file.OpenReadStream();
-            var success = await _userService.UploadPhotoAsync(userId, stream, file.FileName, file.ContentType);
-
+            // var success = await _userService.UploadPhotoAsync(userId, stream, file.FileName, file.ContentType);
+            var success = await _userService.UploadPhotoToStorageAsync(userId, stream, file.FileName, file.ContentType);
             if (!success)
                 return BadRequest(new { message = "Не удалось загрузить фото" });
 
