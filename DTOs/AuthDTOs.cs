@@ -86,6 +86,7 @@ public class DialogDto
     public DateTime LastMessageTime { get; set; }
     public int UnreadCount { get; set; }
     public string UserPhoto { get; set; } = string.Empty;
+    public bool IsOnline { get; set; }
 }
 
 public class LikeDto

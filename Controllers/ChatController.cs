@@ -159,6 +159,8 @@ public class ChatController : ControllerBase
                 var unreadCount = await _context.Messages
                     .CountAsync(m => m.SenderId == userId && m.ReceiverId == currentUserId && !m.IsRead);
 
+                var isOnline = await _cacheService.IsUserOnlineAsync(userId);
+
                 dialogs.Add(new DialogDto
                 {
                     UserId = userId,
@@ -166,7 +168,8 @@ public class ChatController : ControllerBase
                     LastMessage = lastMessage?.Content ?? "",
                     LastMessageTime = lastMessage?.SentAt ?? DateTime.UtcNow,
                     UnreadCount = unreadCount,
-                    UserPhoto = user.Profile?.Photos?.FirstOrDefault()?.ThumbUrl ?? ""
+                    UserPhoto = user.Profile?.Photos?.FirstOrDefault()?.ThumbUrl ?? "",
+                    IsOnline = isOnline           // ← добавить
                 });
             }
 
