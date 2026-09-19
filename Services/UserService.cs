@@ -55,8 +55,9 @@ public class UserService : IUserService
             if (profile == null)
                 return null;
 
-            var isOnline = await _cacheService.IsUserOnlineAsync(userId);
-
+            var isOnline = profile.User.LastOnlineAt.HasValue
+                && profile.User.LastOnlineAt.Value > DateTime.UtcNow.AddMinutes(-2);
+           
             return new ProfileDto
             {
                 Id = profile.Id,
@@ -182,9 +183,12 @@ public class UserService : IUserService
                 .ToListAsync();
 
             var result = new List<ProfileDto>();
+            var cutoff = DateTime.UtcNow.AddMinutes(-2);
+          
             foreach (var profile in profiles)
             {
-                var isOnline = await _cacheService.IsUserOnlineAsync(profile.UserId);
+                var isOnline = profile.User.LastOnlineAt.HasValue   && profile.User.LastOnlineAt.Value > cutoff;
+                 
                 result.Add(new ProfileDto
                 {
                     Id = profile.Id,
@@ -195,7 +199,7 @@ public class UserService : IUserService
                     City = profile.City,
                     About = profile.About,
                     IsOnline = isOnline,
-                    LastOnlineAt = profile.User.LastOnlineAt,
+                    LastOnlineAt = profile.User.LastOnlineAt,    //это оставить или удалить?
                     Photos = profile.Photos.Select(p => new PhotoDto
                     {
                         Id = p.Id,
@@ -203,7 +207,7 @@ public class UserService : IUserService
                         MediumUrl = p.MediumUrl,
                         OriginalUrl = p.OriginalUrl,
                         IsMain = p.IsMain
-                    }).ToList()
+                    }).ToList() 
                 });
             }
 
@@ -217,87 +221,7 @@ public class UserService : IUserService
         }
     }
 
-    /*
-    public async Task<bool> UploadPhotoAsync(int userId, Stream fileStream, string fileName, string contentType)
-    {
-        try
-        {
-            if (fileStream.Length > 5 * 1024 * 1024)
-                throw new ArgumentException("Файл слишком большой. Максимальный размер - 5 MB");
-
-            var extension = Path.GetExtension(fileName).ToLowerInvariant();
-            if (!new[] { ".jpg", ".jpeg", ".png", ".gif" }.Contains(extension))
-                throw new ArgumentException("Неподдерживаемый формат файла");
-
-            var userProfile = await _context.UserProfiles
-                .Include(p => p.Photos)
-                .FirstOrDefaultAsync(p => p.UserId == userId);
-
-            if (userProfile == null)
-                return false;
-
-            if (userProfile.Photos.Count >= 5)
-                throw new InvalidOperationException("Достигнут лимит фотографий (максимум 5)");
-
-            var guid = Guid.NewGuid().ToString();
-            var uploadsFolder = Path.Combine(_webHostEnvironment.WebRootPath, "photos");
-
-            var originalFolder = Path.Combine(uploadsFolder, "original");
-            var mediumFolder = Path.Combine(uploadsFolder, "medium");
-            var thumbFolder = Path.Combine(uploadsFolder, "thumb");
-
-            Directory.CreateDirectory(originalFolder);
-            Directory.CreateDirectory(mediumFolder);
-            Directory.CreateDirectory(thumbFolder);
-
-            using var image = await Image.LoadAsync(fileStream);
-
-            var originalPath = Path.Combine(originalFolder, $"{guid}{extension}");
-            await image.SaveAsync(originalPath);
-
-            var mediumPath = Path.Combine(mediumFolder, $"{guid}{extension}");
-            using (var mediumImage = image.Clone(ctx => ctx.Resize(new ResizeOptions
-            {
-                Size = new Size(500, 500),
-                Mode = ResizeMode.Max
-            })))
-            {
-                await mediumImage.SaveAsync(mediumPath);
-            }
-
-            var thumbPath = Path.Combine(thumbFolder, $"{guid}{extension}");
-            using (var thumbImage = image.Clone(ctx => ctx.Resize(new ResizeOptions
-            {
-                Size = new Size(150, 150),
-                Mode = ResizeMode.Crop
-            })))
-            {
-                await thumbImage.SaveAsync(thumbPath);
-            }
-
-            var photo = new Photo
-            {
-                UserProfileId = userProfile.Id,
-                OriginalUrl = $"/photos/original/{guid}{extension}",
-                MediumUrl = $"/photos/medium/{guid}{extension}",
-                ThumbUrl = $"/photos/thumb/{guid}{extension}",
-                IsMain = !userProfile.Photos.Any(p => p.IsMain),
-                UploadedAt = DateTime.UtcNow
-            };
-
-            userProfile.Photos.Add(photo);
-            await _context.SaveChangesAsync();
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, $"Ошибка загрузки фото для пользователя {userId}");
-            throw;
-        }
-    }
-    */
-
+  
     public async Task<bool> DeletePhotoAsync(int userId, int photoId)
     {
         try

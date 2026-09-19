@@ -159,7 +159,8 @@ public class ChatController : ControllerBase
                 var unreadCount = await _context.Messages
                     .CountAsync(m => m.SenderId == userId && m.ReceiverId == currentUserId && !m.IsRead);
 
-                var isOnline = await _cacheService.IsUserOnlineAsync(userId);
+                var isOnline = user.LastOnlineAt.HasValue
+                    && user.LastOnlineAt.Value > DateTime.UtcNow.AddMinutes(-2);
 
                 dialogs.Add(new DialogDto
                 {
@@ -258,7 +259,12 @@ public class ChatController : ControllerBase
     [HttpGet("online/{userId}")]
     public async Task<IActionResult> IsUserOnline(int userId)
     {
-        var online = await _cacheService.IsUserOnlineAsync(userId);
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null) return NotFound();
+
+        var online = user.LastOnlineAt.HasValue
+            && user.LastOnlineAt.Value > DateTime.UtcNow.AddMinutes(-2);
+
         return Ok(new { isOnline = online });
     }
 }

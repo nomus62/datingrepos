@@ -99,7 +99,6 @@ public class AuthController : ControllerBase
             if (user.IsBanned)
                 return Unauthorized(new { message = $"Вы забанены. Причина: {user.BanReason ?? "не указана"}" });
            
-            await _cacheService.UpdateOnlineStatusAsync(user.Id, true);
 
             var tokens = await _tokenService.CreateTokens(user);
             user.RefreshToken = tokens.RefreshToken;
@@ -130,6 +129,7 @@ public class AuthController : ControllerBase
             var tokens = await _tokenService.CreateTokens(user);
             user.RefreshToken = tokens.RefreshToken;
             user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
+            user.LastOnlineAt = DateTime.UtcNow;   // ← добавили
             await _context.SaveChangesAsync();
 
             return Ok(new { tokens });
@@ -156,10 +156,11 @@ public class AuthController : ControllerBase
                 {
                     user.RefreshToken = string.Empty;
                     user.RefreshTokenExpiry = null;
+                    user.LastOnlineAt = DateTime.UtcNow.AddMinutes(-10);
                     await _context.SaveChangesAsync();
                 }
 
-                await _cacheService.UpdateOnlineStatusAsync(userId, false);
+               // await _cacheService.UpdateOnlineStatusAsync(userId, false);
             }
 
             return Ok(new { message = "Выход выполнен успешно" });

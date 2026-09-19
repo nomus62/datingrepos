@@ -49,9 +49,12 @@ public class AdminController : ControllerBase
         var totalMatches = await _context.Likes.CountAsync(l => l.IsMutual) / 2;
         var totalMessages = await _context.Messages.CountAsync();
         var messagesToday = await _context.Messages.CountAsync(m => m.SentAt >= dayAgo);
-        var pendingReports = await _context.Reports.CountAsync(r => r.Status == "Pending");
-        var onlineIds = await _cacheService.GetOnlineUserIdsAsync();
 
+        var pendingReports = await _context.Reports.CountAsync(r => r.Status == "Pending");
+
+        var onlineCutoff = DateTime.UtcNow.AddMinutes(-2);
+        var onlineCount = await _context.Users.CountAsync(u =>
+            u.LastOnlineAt.HasValue && u.LastOnlineAt.Value > onlineCutoff);
         return Ok(new
         {
             totalUsers,
@@ -62,7 +65,7 @@ public class AdminController : ControllerBase
             totalMessages,
             messagesToday,
             pendingReports,
-            onlineCount = onlineIds.Count()
+            onlineCount 
         });
     }
 
@@ -205,9 +208,9 @@ public class AdminController : ControllerBase
         if (user == null) return NotFound();
 
         // Удаляем файлы фото
-        if (user.Profile?.Photos != null)
+        if (user.Profile?.Photos is { } photos)
         {
-            foreach (var photo in user.Profile.Photos)
+            foreach (var photo in photos)
             {
                 foreach (var url in new[] { photo.OriginalUrl, photo.MediumUrl, photo.ThumbUrl })
                 {

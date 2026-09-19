@@ -166,10 +166,12 @@ public class LikesController : ControllerBase
                .ThenInclude(p => p.Photos)
                .ToListAsync();
 
+            var cutoff = DateTime.UtcNow.AddMinutes(-2);
             var matches = new List<MatchDto>();
             foreach (var l in rawMatches)
             {
-                var isOnline = await _cacheService.IsUserOnlineAsync(l.TargetUserId);
+                var isOnline = l.TargetUser.LastOnlineAt.HasValue  && l.TargetUser.LastOnlineAt.Value > cutoff;
+                  
                 matches.Add(new MatchDto
                 {
                     UserId = l.TargetUserId,
